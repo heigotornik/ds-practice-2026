@@ -4,22 +4,6 @@ import os
 # This set of lines are needed to import the gRPC stubs.
 # The path of the stubs is relative to the current file, or absolute inside the container.
 # Change these lines only if strictly needed.
-FILE = __file__ if '__file__' in globals() else os.getenv("PYTHONFILE", "")
-fraud_detection_grpc_path = os.path.abspath(os.path.join(FILE, '../../../utils/pb/fraud_detection'))
-sys.path.insert(0, fraud_detection_grpc_path)
-import fraud_detection_pb2 as fraud_detection
-import fraud_detection_pb2_grpc as fraud_detection_grpc
-
-import grpc
-
-def check_fraud(card_number='1234', order_amount=1234):
-    # Establish a connection with the fraud-detection gRPC service.
-    with grpc.insecure_channel('fraud_detection:50051') as channel:
-        # Create a stub object.
-        stub = fraud_detection_grpc.FraudDetectionServiceStub(channel)
-        # Call the service through the stub object.
-        response = stub.DetectFraud(fraud_detection.FraudRequest(card_number=card_number, order_amount=order_amount))
-    return response.is_fraud
 
 # Import Flask.
 # Flask is a web framework for Python.
@@ -28,6 +12,9 @@ def check_fraud(card_number='1234', order_amount=1234):
 from flask import Flask, request
 from flask_cors import CORS
 import json
+
+from fraud_api import check_fraud
+from verification_api import verify
 
 # Create a simple Flask app.
 app = Flask(__name__)
@@ -54,6 +41,12 @@ def checkout():
     request_data = json.loads(request.data)
     # Print request object data
     print("Request Data:", request_data.get('items'))
+
+    check_verification_response = verify(request_data)
+    print("Verification Response:", check_verification_response)
+
+    check_fraud_response = check_fraud()
+    print("Fraud Check Response:", check_fraud_response)
 
     # Dummy response following the provided YAML specification for the bookstore
     order_status_response = {

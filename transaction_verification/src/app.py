@@ -15,8 +15,8 @@ import grpc
 from concurrent import futures
 
 # Create a class to define the server functions, derived from
-# transaction_verification.TransactionVerificationServiceServicer
-class VerificationService(transaction_verification_grpc.TransactionVerificationServiceServicer):
+# transaction_verification.VerificationServiceServicer
+class VerificationService(transaction_verification_grpc.VerificationServiceServicer):
 
     def Verify(self, request, context):
         # These checks were added using ChatGPT 5.2
@@ -115,12 +115,12 @@ def serve():
     server = grpc.server(futures.ThreadPoolExecutor())
     # Add VerificationService
     transaction_verification_grpc.add_VerificationServiceServicer_to_server(VerificationService(), server)
-    # Listen on port 50051
-    port = "50051"
+    # Listen on port 50052
+    port = "50052"
     server.add_insecure_port("[::]:" + port)
     # Start the server
     server.start()
-    print("Server started. Listening on port 50051.")
+    print("Server started. Listening on port 50052.")
     # Keep thread alive
     server.wait_for_termination()
 
