@@ -19,6 +19,15 @@ from concurrent import futures
 class VerificationService(transaction_verification_grpc.TransactionVerificationServiceServicer):
 
     def Verify(self, request, context):
+        # These checks were added using ChatGPT 5.2
+        # with promt "Add basic validation using the .proto file specified"
+        # and adding the .proto file
+        # The checks include:
+        # - User verification: checks if the user name and contact information are provided.
+        # - Terms verification: checks if the terms and conditions are accepted.
+        # - Items verification: checks if at least one item is included and if each item has a valid name and quantity.
+        # - Credit card verification: checks if the credit card number is in a valid format
+
         # ---- User verification ----
         if not request.user.name.strip():
             return transaction_verification.VerifyResponse(
