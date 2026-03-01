@@ -9,6 +9,7 @@ import os
 # Flask is a web framework for Python.
 # It allows you to build a web application quickly.
 # For more information, see https://flask.palletsprojects.com/en/latest/
+from logging.config import dictConfig
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
@@ -18,6 +19,24 @@ from exceptions import FraudulentCheckout, InvalidCheckout
 from verification_api import verify
 
 # Create a simple Flask app.
+
+dictConfig({
+    'version': 1,
+    'formatters': {'default': {
+        'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
+    }},
+    'handlers': {'wsgi': {
+        'class': 'logging.StreamHandler',
+        'stream': 'ext://flask.logging.wsgi_errors_stream',
+        'formatter': 'default'
+    }},
+    'root': {
+        'level': 'DEBUG',
+        'handlers': ['wsgi']
+    }
+})
+
+
 app = Flask(__name__)
 # Enable CORS for the app.
 CORS(app, resources={r'/*': {'origins': '*'}})
@@ -51,18 +70,20 @@ def checkout():
     # Get request object data to json
     request_data = json.loads(request.data)
     # Print request object data
-    print("Request Data:", request_data)
+    app.logger.info("Received checkout: %s", request.data)
 
-
+    app.logger.debug("Validating checkout")
     is_valid, msg = verify(request_data)
 
     if not is_valid:
+        app.logger.error("Checkout validation error: %s", msg)
         raise InvalidCheckout(message=msg)
 
+    app.logger.debug("Checking fraud")
     is_fraudulent = check_fraud(card_number=request_data.get("creditCard").get("number"), order_amount=len(request_data.get("items")))
 
-
     if is_fraudulent:
+        app.logger.error("Fraudulent checkout detected: %s", msg)
         raise FraudulentCheckout(message="Fraudulent checkout detected")
     
     order_status_response = {
