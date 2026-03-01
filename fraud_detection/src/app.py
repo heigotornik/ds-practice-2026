@@ -30,7 +30,8 @@ from concurrent import futures
 class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
     def DetectFraud(self, request, context):
         response = fraud_detection.FraudResponse()
-        if request.card_number == '1234':
+        print("Checking for fraud", request)
+        if request.card_number == '1234123412341234':
             response.is_fraud = True # this is fraud
         else:
             response.is_fraud = False # this is not fraud

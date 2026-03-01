@@ -43,10 +43,6 @@ def map_transaction_to_proto(transaction: dict):
             for item in transaction.get("items", [])
         ],
 
-        discountCode=transaction.get("discountCode", ""),
-        shippingMethod=transaction.get("shippingMethod", ""),
-        giftMessage=transaction.get("giftMessage", ""),
-
         billingAddress=transaction_verification.Address(
             street=transaction.get("billingAddress", {}).get("street", ""),
             city=transaction.get("billingAddress", {}).get("city", ""),
@@ -55,24 +51,7 @@ def map_transaction_to_proto(transaction: dict):
             country=transaction.get("billingAddress", {}).get("country", "")
         ),
 
+        shippingMethod=transaction.get("shippingMethod", ""),
         giftWrapping=transaction.get("giftWrapping", False),
-        termsAndConditionsAccepted=transaction.get("termsAndConditionsAccepted", False),
-
-        notificationPreferences=transaction.get("notificationPreferences", []),
-
-        device=transaction_verification.Device(
-            type=transaction.get("device", {}).get("type", ""),
-            model=transaction.get("device", {}).get("model", ""),
-            os=transaction.get("device", {}).get("os", "")
-        ),
-
-        browser=transaction_verification.Browser(
-            name=transaction.get("browser", {}).get("name", ""),
-            version=transaction.get("browser", {}).get("version", "")
-        ),
-
-        appVersion=transaction.get("appVersion", ""),
-        screenResolution=transaction.get("screenResolution", ""),
-        referrer=transaction.get("referrer", ""),
-        deviceLanguage=transaction.get("deviceLanguage", "")
+        termsAccepted=transaction.get("termsAccepted", False),
     )

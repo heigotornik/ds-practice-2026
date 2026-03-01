@@ -6,42 +6,24 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Transaction(_message.Message):
-    __slots__ = ("user", "creditCard", "userComment", "items", "discountCode", "shippingMethod", "giftMessage", "billingAddress", "giftWrapping", "termsAndConditionsAccepted", "notificationPreferences", "device", "browser", "appVersion", "screenResolution", "referrer", "deviceLanguage")
+    __slots__ = ("user", "creditCard", "userComment", "items", "billingAddress", "shippingMethod", "giftWrapping", "termsAccepted")
     USER_FIELD_NUMBER: _ClassVar[int]
     CREDITCARD_FIELD_NUMBER: _ClassVar[int]
     USERCOMMENT_FIELD_NUMBER: _ClassVar[int]
     ITEMS_FIELD_NUMBER: _ClassVar[int]
-    DISCOUNTCODE_FIELD_NUMBER: _ClassVar[int]
-    SHIPPINGMETHOD_FIELD_NUMBER: _ClassVar[int]
-    GIFTMESSAGE_FIELD_NUMBER: _ClassVar[int]
     BILLINGADDRESS_FIELD_NUMBER: _ClassVar[int]
+    SHIPPINGMETHOD_FIELD_NUMBER: _ClassVar[int]
     GIFTWRAPPING_FIELD_NUMBER: _ClassVar[int]
-    TERMSANDCONDITIONSACCEPTED_FIELD_NUMBER: _ClassVar[int]
-    NOTIFICATIONPREFERENCES_FIELD_NUMBER: _ClassVar[int]
-    DEVICE_FIELD_NUMBER: _ClassVar[int]
-    BROWSER_FIELD_NUMBER: _ClassVar[int]
-    APPVERSION_FIELD_NUMBER: _ClassVar[int]
-    SCREENRESOLUTION_FIELD_NUMBER: _ClassVar[int]
-    REFERRER_FIELD_NUMBER: _ClassVar[int]
-    DEVICELANGUAGE_FIELD_NUMBER: _ClassVar[int]
+    TERMSACCEPTED_FIELD_NUMBER: _ClassVar[int]
     user: User
     creditCard: CreditCard
     userComment: str
     items: _containers.RepeatedCompositeFieldContainer[Item]
-    discountCode: str
-    shippingMethod: str
-    giftMessage: str
     billingAddress: Address
+    shippingMethod: str
     giftWrapping: bool
-    termsAndConditionsAccepted: bool
-    notificationPreferences: _containers.RepeatedScalarFieldContainer[str]
-    device: Device
-    browser: Browser
-    appVersion: str
-    screenResolution: str
-    referrer: str
-    deviceLanguage: str
-    def __init__(self, user: _Optional[_Union[User, _Mapping]] = ..., creditCard: _Optional[_Union[CreditCard, _Mapping]] = ..., userComment: _Optional[str] = ..., items: _Optional[_Iterable[_Union[Item, _Mapping]]] = ..., discountCode: _Optional[str] = ..., shippingMethod: _Optional[str] = ..., giftMessage: _Optional[str] = ..., billingAddress: _Optional[_Union[Address, _Mapping]] = ..., giftWrapping: bool = ..., termsAndConditionsAccepted: bool = ..., notificationPreferences: _Optional[_Iterable[str]] = ..., device: _Optional[_Union[Device, _Mapping]] = ..., browser: _Optional[_Union[Browser, _Mapping]] = ..., appVersion: _Optional[str] = ..., screenResolution: _Optional[str] = ..., referrer: _Optional[str] = ..., deviceLanguage: _Optional[str] = ...) -> None: ...
+    termsAccepted: bool
+    def __init__(self, user: _Optional[_Union[User, _Mapping]] = ..., creditCard: _Optional[_Union[CreditCard, _Mapping]] = ..., userComment: _Optional[str] = ..., items: _Optional[_Iterable[_Union[Item, _Mapping]]] = ..., billingAddress: _Optional[_Union[Address, _Mapping]] = ..., shippingMethod: _Optional[str] = ..., giftWrapping: bool = ..., termsAccepted: bool = ...) -> None: ...
 
 class User(_message.Message):
     __slots__ = ("name", "contact")
@@ -82,24 +64,6 @@ class Address(_message.Message):
     zip: str
     country: str
     def __init__(self, street: _Optional[str] = ..., city: _Optional[str] = ..., state: _Optional[str] = ..., zip: _Optional[str] = ..., country: _Optional[str] = ...) -> None: ...
-
-class Device(_message.Message):
-    __slots__ = ("type", "model", "os")
-    TYPE_FIELD_NUMBER: _ClassVar[int]
-    MODEL_FIELD_NUMBER: _ClassVar[int]
-    OS_FIELD_NUMBER: _ClassVar[int]
-    type: str
-    model: str
-    os: str
-    def __init__(self, type: _Optional[str] = ..., model: _Optional[str] = ..., os: _Optional[str] = ...) -> None: ...
-
-class Browser(_message.Message):
-    __slots__ = ("name", "version")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    VERSION_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    version: str
-    def __init__(self, name: _Optional[str] = ..., version: _Optional[str] = ...) -> None: ...
 
 class VerifyResponse(_message.Message):
     __slots__ = ("isValid", "message")

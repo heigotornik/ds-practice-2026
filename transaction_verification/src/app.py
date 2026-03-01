@@ -42,7 +42,7 @@ class VerificationService(transaction_verification_grpc.VerificationServiceServi
             )
 
         # ---- Terms verification ----
-        if not request.termsAndConditionsAccepted:
+        if not request.termsAccepted:
             return transaction_verification.VerifyResponse(
                 isValid=False,
                 message="Terms and conditions must be accepted"
