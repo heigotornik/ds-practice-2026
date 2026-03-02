@@ -17,6 +17,7 @@ import json
 from fraud_api import check_fraud
 from exceptions import FraudulentCheckout, InvalidCheckout
 from verification_api import verify
+from suggestion_api import suggest
 
 # Create a simple Flask app.
 
@@ -86,12 +87,13 @@ def checkout():
         app.logger.error("Fraudulent checkout detected: %s", msg)
         raise FraudulentCheckout(message="Fraudulent checkout detected")
     
+    suggestions = suggest()
+    
     order_status_response = {
         'orderId': '12345',
         'status': 'Order Approved',
         'suggestedBooks': [
-            {'bookId': '123', 'title': 'The Best Book', 'author': 'Author 1'},
-            {'bookId': '456', 'title': 'The Second Best Book', 'author': 'Author 2'}
+            {'bookId': suggestions[0].bookId, 'title': suggestions[0].title, 'author': suggestions[0].author},
         ]
     }
 

@@ -8,7 +8,7 @@ FILE = __file__ if '__file__' in globals() else os.getenv("PYTHONFILE", "")
 suggestion_grpc_path = os.path.abspath(os.path.join(FILE, '../../../utils/pb/suggestion'))
 sys.path.insert(0, suggestion_grpc_path)
 import suggestion_pb2 as suggestion
-import suggestion_grpc as suggestion_grpc
+import suggestion_pb2_grpc as suggestion_grpc
 
 import grpc
 from concurrent import futures
@@ -20,11 +20,15 @@ class SuggestionService(suggestion_grpc.SuggestionServiceServicer):
     def SuggestBooks(self, request, context):
         # Create a HelloResponse object
         inputBooks = request.books
-        testbook1 = suggestion.Book()
-        response = suggestion.BookList( {testbook1} ) 
-        # Set the greeting field of the response object
-        # Print the greeting message
-        # Return the response object
+        return suggestion.BookList(
+            books=[
+                suggestion.Book(
+                    bookId=123,
+                    title="testBook",
+                    author="testAuthor"
+                )
+            ]
+        )
         return response
 
 def serve():
@@ -37,7 +41,7 @@ def serve():
     server.add_insecure_port("[::]:" + port)
     # Start the server
     server.start()
-    print("Server started. Listening on port 50051.")
+    print("Server started. Listening on port 50053.")
     # Keep thread alive
     server.wait_for_termination()
 
