@@ -14,6 +14,43 @@
 
 ## Suggestions Service
 
+### Overview
+
+The suggestion service is responsible for suggesting books to the user based on their
+previous purchases.
+
+The current implementation simply reads in the list of books in an order and returns
+a single test book.
+
+### API
+
+The verification service contains the following API endpoints:
+
+```proto
+
+service SuggestionService {
+    rpc SuggestBooks (BookList) returns (BookList);
+}
+
+```
+
+**suggest**
+
+The request body a subset of the checkout object received from the frontend, containing
+a list of books that contained in the checkout object. Every entry in this list contains
+the book's id, title and author.
+
+```proto
+message BookList {
+    repeated Book books = 1;
+}
+message Book{
+    int32 bookId = 1;
+    string title = 2;
+    string author = 3;
+}
+```
+
 ## Verification Service
 
 ### Overview
