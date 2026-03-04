@@ -12,6 +12,30 @@ import fraud_detection_pb2_grpc as fraud_detection_grpc
 
 import grpc
 from concurrent import futures
+from logging.config import dictConfig
+import logging
+
+dictConfig({
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'default': {
+            'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
+        }
+    },
+    'handlers': {
+        'grpc': {
+            'class': 'logging.StreamHandler',
+            'stream': sys.stderr,   # Equivalent to Flask wsgi_errors_stream
+            'formatter': 'default',
+        }
+    },
+    'root': {
+        'level': 'DEBUG',
+        'handlers': ['grpc']
+    }
+})
+logger = logging.getLogger(__name__)
 
 # Create a class to define the server functions, derived from
 # fraud_detection_pb2_grpc.HelloServiceServicer
@@ -29,13 +53,13 @@ from concurrent import futures
 
 class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
     def DetectFraud(self, request, context):
+        logger.debug("Received request %s", request)
         response = fraud_detection.FraudResponse()
-        print("Checking for fraud", request)
         if request.card_number == '1234123412341234':
             response.is_fraud = True # this is fraud
         else:
             response.is_fraud = False # this is not fraud
-        print(response.is_fraud)
+        logger.debug("Returning response %s", response)
         return response
 
 def serve():
@@ -48,7 +72,7 @@ def serve():
     server.add_insecure_port("[::]:" + port)
     # Start the server
     server.start()
-    print("Server started. Listening on port 50051.")
+    logger.info("Server started. Listening on port 50051.")
     # Keep thread alive
     server.wait_for_termination()
 
