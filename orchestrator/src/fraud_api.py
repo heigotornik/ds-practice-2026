@@ -1,3 +1,4 @@
+import logging
 import sys
 import os
 
@@ -9,9 +10,12 @@ import fraud_detection_pb2_grpc as fraud_detection_grpc
 
 import grpc
 
+logger = logging.getLogger(__name__)
+
 def check_fraud(card_number='1234', order_amount=1234):
     # Establish a connection with the fraud-detection gRPC service.
     with grpc.insecure_channel('fraud_detection:50051') as channel:
+        logger.debug("Checking fraud")
         # Create a stub object.
         stub = fraud_detection_grpc.FraudDetectionServiceStub(channel)
         # Call the service through the stub object.

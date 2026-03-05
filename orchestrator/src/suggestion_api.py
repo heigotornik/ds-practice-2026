@@ -1,4 +1,5 @@
 
+import logging
 import sys
 import os
 
@@ -10,9 +11,13 @@ import suggestion_pb2_grpc as suggestion_grpc
 
 import grpc
 
+logger = logging.getLogger(__name__)
+
+
 def suggest(book_id=1234 , book_title="testTitle", book_author="testAuthor"):
     # Establish a connection with the fraud-detection gRPC service.
     with grpc.insecure_channel('suggestions:50053') as channel:
+        logger.debug("Requesting suggestions")
         # Create a stub object.
         stub = suggestion_grpc.SuggestionServiceStub(channel)
         # Call the service through the stub object.

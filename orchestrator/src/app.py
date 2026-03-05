@@ -18,7 +18,7 @@ from fraud_api import check_fraud
 from exceptions import FraudulentCheckout, InvalidCheckout
 from verification_api import verify
 from suggestion_api import suggest
-
+from concurrent.futures import ThreadPoolExecutor
 # Create a simple Flask app.
 
 dictConfig({
@@ -37,6 +37,8 @@ dictConfig({
     }
 })
 
+
+EXECUTOR = ThreadPoolExecutor(max_workers=3)
 
 app = Flask(__name__)
 # Enable CORS for the app.
@@ -73,21 +75,28 @@ def checkout():
     # Print request object data
     app.logger.info("Received checkout: %s", request.data)
 
-    app.logger.debug("Validating checkout")
-    is_valid, msg = verify(request_data)
+    card_number = request_data.get("creditCard").get("number")
+    order_amount = len(request_data.get("items", []))
+
+    verify_future = EXECUTOR.submit(verify, request_data)
+    fraud_future = EXECUTOR.submit(check_fraud,
+                                   card_number=card_number,
+                                   order_amount=order_amount)
+    suggest_future = EXECUTOR.submit(suggest)
+
+    is_valid, msg = verify_future.result()
+    is_fraudulent = fraud_future.result()
+    suggestions = suggest_future.result()
+
 
     if not is_valid:
         app.logger.error("Checkout validation error: %s", msg)
         raise InvalidCheckout(message=msg)
 
-    app.logger.debug("Checking fraud")
-    is_fraudulent = check_fraud(card_number=request_data.get("creditCard").get("number"), order_amount=len(request_data.get("items")))
-
     if is_fraudulent:
         app.logger.error("Fraudulent checkout detected: %s", msg)
         raise FraudulentCheckout(message="Fraudulent checkout detected")
     
-    suggestions = suggest()
     
     order_status_response = {
         'orderId': '12345',

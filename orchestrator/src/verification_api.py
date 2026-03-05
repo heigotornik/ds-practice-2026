@@ -1,3 +1,4 @@
+import logging
 import sys
 import os
 
@@ -10,9 +11,13 @@ import transaction_verification_pb2_grpc as transaction_verification_grpc
 
 import grpc
 
+logger = logging.getLogger(__name__)
+
+
 def verify(transaction):
     # Establish a connection with the transaction-verification gRPC service.
     with grpc.insecure_channel('transaction_verification:50052') as channel:
+        logger.debug("Verifying checkout")
         # Create a stub object.
         stub = transaction_verification_grpc.VerificationServiceStub(channel)
         # Call the service through the stub object.
