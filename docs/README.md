@@ -6,7 +6,8 @@
 
 ## System overview
 
-Communication between services are performed synchronously.
+Communication between services are performed asynchronously.
+The requests to all of the services are sent at the same time, then responses to all are awaited before proceeding with further checks.
 
 ![System diagram](./images/DS-system-diagram.svg)
 
