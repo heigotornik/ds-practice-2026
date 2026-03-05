@@ -6,11 +6,69 @@
 
 ## System overview
 
+Communication between services are performed synchronously.
+
 ![System diagram](./images/DS-system-diagram.svg)
 
 ## Orchestrator Service
 
+### Overview
+
+The orchestrator service provides REST endpoints for interacting with the book store.
+This service is responsible for communicating with the different microservices via gRPC.
+
+### API
+
+The verification service contains the following REST endpoints:
+
+- POST /checkout
+
+**POST /checkout**
+
+The endpoint receives the user checkout request, then:
+
+- sends it to the validation service
+- then if valid, to the fraud check service
+- the if valid to the suggestion service.
+
+and finally returns the checkout with its status and book suggestions.
+
 ## Fraud Detection Service
+
+### Overview
+
+The fraud detection service is responsible for analysing the checkout of the user and checking if the checkout is fraudulent or not.
+
+The current implementation simply checks if the card number contains "1234" repeating 4 times ("1234123412341234") and if it does, it returns that the checkout is fraudulent.
+
+### API
+
+The verification service contains the following API endpoints:
+
+```proto
+
+service FraudDetectionService {
+    rpc DetectFraud (FraudRequest) returns (FraudResponse);
+}
+
+```
+
+**DetectFraud**
+
+The request body a subset of the checkout object received from the frontend, containing
+a list of books that contained in the checkout object. Every entry in this list contains
+the book's id, title and author.
+
+```proto
+message FraudRequest {
+    string card_number = 1;
+    float order_amount = 2;
+}
+
+message FraudResponse {
+    bool is_fraud = 1;
+}
+```
 
 ## Suggestions Service
 
