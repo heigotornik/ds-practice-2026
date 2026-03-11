@@ -13,10 +13,11 @@ from logging.config import dictConfig
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
+import uuid
 
 from fraud_api import check_fraud
 from exceptions import FraudulentCheckout, InvalidCheckout
-from verification_api import verify
+from verification_api import init, verify
 from suggestion_api import suggest
 from concurrent.futures import ThreadPoolExecutor
 # Create a simple Flask app.
@@ -38,7 +39,7 @@ dictConfig({
 })
 
 
-EXECUTOR = ThreadPoolExecutor(max_workers=3)
+EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
 app = Flask(__name__)
 # Enable CORS for the app.
@@ -74,11 +75,15 @@ def checkout():
     request_data = json.loads(request.data)
     # Print request object data
     app.logger.info("Received checkout: %s", request.data)
+    order_id = str(uuid.uuid4())
+    init(order_id, request_data)
 
     card_number = request_data.get("creditCard").get("number")
     order_amount = len(request_data.get("items", []))
 
-    verify_future = EXECUTOR.submit(verify, request_data)
+    verify_future = EXECUTOR.submit(verify, order_id)
+
+
     fraud_future = EXECUTOR.submit(check_fraud,
                                    card_number=card_number,
                                    order_amount=order_amount)

@@ -48,6 +48,14 @@ logger = logging.getLogger(__name__)
 # transaction_verification.VerificationServiceServicer
 class VerificationService(transaction_verification_grpc.VerificationServiceServicer):
 
+    def __init__(self):
+        self.orders = {} 
+
+    def InitOrder(self, request, context):
+        logger.info(f"Received InitOrder request for transaction {request.id}")
+        self.orders[request.id] = request.order
+        return transaction_verification.InitOrderResponse(ok=True)
+
     def Verify(self, request, context):
         # These checks were added using ChatGPT 5.2
         # with promt "Add basic validation using the .proto file specified"
@@ -61,15 +69,24 @@ class VerificationService(transaction_verification_grpc.VerificationServiceServi
         # logging added manually
         logger.debug("Received request %s", request)
 
+        if request.id not in self.orders:
+            return transaction_verification.VerifyResponse(
+                isValid=False,
+                message="Order ID not found. Please initialize the order first."
+            )
+        
+        order = self.orders[request.id]
+        logger.debug("Order data for transaction %s exists", request.id)
+
         # ---- User verification ----
         logger.debug("Running user verification")
-        if not request.user.name.strip():
+        if not order.user.name.strip():
             return transaction_verification.VerifyResponse(
                 isValid=False,
                 message="User name is required"
             )
 
-        if not request.user.contact.strip():
+        if not order.user.contact.strip():
             return transaction_verification.VerifyResponse(
                 isValid=False,
                 message="User contact is required"
@@ -77,7 +94,7 @@ class VerificationService(transaction_verification_grpc.VerificationServiceServi
 
         logger.debug("Running terms verification")
         # ---- Terms verification ----
-        if not request.termsAccepted:
+        if not order.termsAccepted:
             return transaction_verification.VerifyResponse(
                 isValid=False,
                 message="Terms and conditions must be accepted"
@@ -85,13 +102,13 @@ class VerificationService(transaction_verification_grpc.VerificationServiceServi
 
         logger.debug("Running items verification")
         # ---- Items verification ----
-        if len(request.items) == 0:
+        if len(order.items) == 0:
             return transaction_verification.VerifyResponse(
                 isValid=False,
                 message="At least one item must be included"
             )
 
-        for item in request.items:
+        for item in order.items:
             if not item.name.strip():
                 return transaction_verification.VerifyResponse(
                     isValid=False,
@@ -106,7 +123,7 @@ class VerificationService(transaction_verification_grpc.VerificationServiceServi
 
         logger.debug("Running credit card verification")
         # ---- Credit card verification ----
-        cc = request.creditCard
+        cc = order.creditCard
         cc_number = re.sub(r"[\s-]", "", cc.number)
 
         if not cc_number.isdigit() or len(cc_number) < 13 or len(cc_number) > 19:
@@ -129,7 +146,7 @@ class VerificationService(transaction_verification_grpc.VerificationServiceServi
 
         logger.debug("Running billing address verification")
         # ---- Billing address verification ----
-        addr = request.billingAddress
+        addr = order.billingAddress
         if not addr.street.strip() or not addr.city.strip():
             return transaction_verification.VerifyResponse(
                 isValid=False,
@@ -143,7 +160,7 @@ class VerificationService(transaction_verification_grpc.VerificationServiceServi
             )
 
         # ---- Success ----
-        logger.info("All verification checks successful")
+        logger.info("All verification checks successful for order ID %s", request.id)
         return transaction_verification.VerifyResponse(
             isValid=True,
             message="Checkout request verified successfully"

@@ -5,7 +5,19 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class Transaction(_message.Message):
+class InitOrderResponse(_message.Message):
+    __slots__ = ("ok",)
+    OK_FIELD_NUMBER: _ClassVar[int]
+    ok: bool
+    def __init__(self, ok: bool = ...) -> None: ...
+
+class VerifyRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class OrderData(_message.Message):
     __slots__ = ("user", "creditCard", "userComment", "items", "billingAddress", "shippingMethod", "giftWrapping", "termsAccepted")
     USER_FIELD_NUMBER: _ClassVar[int]
     CREDITCARD_FIELD_NUMBER: _ClassVar[int]
@@ -72,3 +84,11 @@ class VerifyResponse(_message.Message):
     isValid: bool
     message: str
     def __init__(self, isValid: bool = ..., message: _Optional[str] = ...) -> None: ...
+
+class InitOrderRequest(_message.Message):
+    __slots__ = ("id", "order")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    ORDER_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    order: OrderData
+    def __init__(self, id: _Optional[str] = ..., order: _Optional[_Union[OrderData, _Mapping]] = ...) -> None: ...

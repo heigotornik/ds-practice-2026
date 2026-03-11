@@ -14,19 +14,34 @@ import grpc
 logger = logging.getLogger(__name__)
 
 
-def verify(transaction):
-    # Establish a connection with the transaction-verification gRPC service.
+def init(id, order):
     with grpc.insecure_channel('transaction_verification:50052') as channel:
-        logger.debug("Verifying checkout")
+        logger.info(f"Initializing verification for transaction {id}")
         # Create a stub object.
         stub = transaction_verification_grpc.VerificationServiceStub(channel)
         # Call the service through the stub object.
-        response = stub.Verify(map_transaction_to_proto(transaction))
+        response = stub.InitOrder(
+                transaction_verification.InitOrderRequest(
+                    id=id,
+                    order=map_transaction_to_proto(order)
+
+                ))
+    return response.ok
+    
+
+def verify(order_id):
+    # Establish a connection with the transaction-verification gRPC service.
+    with grpc.insecure_channel('transaction_verification:50052') as channel:
+        logger.debug("Verifying checkout for order ID %s", order_id)
+        # Create a stub object.
+        stub = transaction_verification_grpc.VerificationServiceStub(channel)
+        # Call the service through the stub object.
+        response = stub.Verify(transaction_verification.VerifyRequest(id=order_id))
     return response.isValid, response.message
 
 
 def map_transaction_to_proto(transaction: dict):
-    return transaction_verification.Transaction(
+    return transaction_verification.OrderData(
         user=transaction_verification.User(
             name=transaction.get("user", {}).get("name", ""),
             contact=transaction.get("user", {}).get("contact", "")

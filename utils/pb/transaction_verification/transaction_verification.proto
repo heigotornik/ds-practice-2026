@@ -3,10 +3,19 @@ syntax = "proto3";
 package verification;
 
 service VerificationService {
-  rpc Verify (Transaction) returns (VerifyResponse);
+  rpc Verify (VerifyRequest) returns (VerifyResponse);
+  rpc InitOrder (InitOrderRequest) returns (InitOrderResponse);
 }
 
-message Transaction {
+message InitOrderResponse {
+  bool ok = 1;
+}
+
+message VerifyRequest {
+  string id = 1;
+}
+
+message OrderData {
   User user = 1;
   CreditCard creditCard = 2;
   string userComment = 3;
@@ -47,4 +56,9 @@ message Address {
 message VerifyResponse {
   bool isValid = 1;
   optional string message = 2;
+}
+
+message InitOrderRequest {
+  string id = 1;
+  OrderData order = 2;
 }
