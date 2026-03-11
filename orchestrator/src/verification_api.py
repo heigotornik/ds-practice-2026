@@ -14,7 +14,7 @@ import grpc
 logger = logging.getLogger(__name__)
 
 
-def init(id, order):
+def init_verification_data(id, order):
     with grpc.insecure_channel('transaction_verification:50052') as channel:
         logger.info(f"Initializing verification for transaction {id}")
         # Create a stub object.

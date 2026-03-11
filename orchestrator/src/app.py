@@ -17,7 +17,7 @@ import uuid
 
 from fraud_api import check_fraud
 from exceptions import FraudulentCheckout, InvalidCheckout
-from verification_api import init, verify
+from verification_api import  init_verification_data, verify
 from suggestion_api import suggest
 from concurrent.futures import ThreadPoolExecutor
 # Create a simple Flask app.
@@ -76,7 +76,7 @@ def checkout():
     # Print request object data
     app.logger.info("Received checkout: %s", request.data)
     order_id = str(uuid.uuid4())
-    init(order_id, request_data)
+    init_verification_data(order_id, request_data)
 
     card_number = request_data.get("creditCard").get("number")
     order_amount = len(request_data.get("items", []))
