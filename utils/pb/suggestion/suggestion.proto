@@ -4,6 +4,16 @@ package suggestion;
 
 service SuggestionService {
     rpc SuggestBooks (BookList) returns (BookList);
+    rpc InitOrder (InitOrderRequest) returns (InitOrderResponse);
+}
+
+message InitOrderRequest {
+  string id = 1;
+  BookList books = 2;
+}
+
+message InitOrderResponse {
+  bool ok = 1;
 }
 
 message BookList {

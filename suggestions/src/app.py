@@ -39,11 +39,18 @@ logger = logging.getLogger(__name__)
 # Create a class to define the server functions, derived from
 # fraud_detection_pb2_grpc.HelloServiceServicer
 class SuggestionService(suggestion_grpc.SuggestionServiceServicer):
-    # Create an RPC function to say hello
-    def SuggestBooks(self, request, context):
+    def __init__(self, svc_idx=2, total_svcs=3):
+        self.orders = {} 
+
+    def InitOrder(self, request, context):
+        logger.info(f"Suggestion service received InitOrder request for transaction {request.id}")
+        self.orders[request.id] = {"books": request.books, "vc" : [0]*3}
+        return suggestion.InitOrderResponse(ok=True)
+
+    def SuggestBooks(self, order_id):
         # Create a HelloResponse object
-        logger.debug("Received request %s", request)
-        inputBooks = request.books
+        logger.debug(f"Suggesting for order id {id}")
+        inputBooks = self.orders[order_id].books
         suggestionList = suggestion.BookList(
             books=[
                 suggestion.Book(
