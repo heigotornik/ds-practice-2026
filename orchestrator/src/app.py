@@ -14,13 +14,13 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
 import uuid
+import threading
 
 from fraud_api import check_fraud, init_fraud_detection_data
 from exceptions import FraudulentCheckout, InvalidCheckout
-from verification_api import  init_verification_data, verify
-from suggestion_api import suggest
+from orchestrator_api import start_grpc
+from verification_api import  init_verification_data
 from concurrent.futures import ThreadPoolExecutor
-# Create a simple Flask app.
 
 dictConfig({
     'version': 1,
@@ -45,6 +45,26 @@ app = Flask(__name__)
 # Enable CORS for the app.
 CORS(app, resources={r'/*': {'origins': '*'}})
 
+ORDER_STATE = {}
+TOTAL_SERVICES_TO_CHECK = 1  # We only need a "success" message from suggestions service
+LOCK = threading.Lock()
+
+def update_order(order_id, success, message):
+    with LOCK:
+        order = ORDER_STATE.get(order_id)
+        if not order:
+            return
+
+        if not success:
+            order["success"] = False
+            order["message"] = message
+            order["done"].set()
+            return
+
+        order["responses"] += 1
+        if order["responses"] == TOTAL_SERVICES_TO_CHECK:
+            order["message"] = message
+            order["done"].set()
 
 @app.errorhandler(InvalidCheckout)
 def invalid_api_usage(e):
@@ -67,39 +87,35 @@ def checkout():
     init_verification_data(order_id, request_data)
     init_fraud_detection_data(order_id, request_data)
 
-    verify_future = EXECUTOR.submit(verify, order_id)
+    finished = ORDER_STATE[order_id]["done"].wait(timeout=10)
 
+    if not finished:
+        return {"status":"FAILED"},408
 
-    fraud_future = EXECUTOR.submit(check_fraud, order_id)
-    suggest_future = EXECUTOR.submit(suggest)
+    if ORDER_STATE[order_id]["success"]:
+        return {
+            "orderId":order_id,
+            "status":"SUCCESS"
+            # TODO:
+            # 'suggestedBooks': [
+            #     {'bookId': suggestions[0].bookId, 'title': suggestions[0].title, 'author': suggestions[0].author},
+            # ]
+        }
 
-    is_valid, msg = verify_future.result()
-    is_fraudulent, _ = fraud_future.result()
-    suggestions = suggest_future.result()
-
-
-    if not is_valid:
-        app.logger.error("Checkout validation error: %s", msg)
-        raise InvalidCheckout(message=msg)
-
-    if is_fraudulent:
-        app.logger.error("Fraudulent checkout detected: %s", msg)
-        raise FraudulentCheckout(message="Fraudulent checkout detected")
-    
-    
-    order_status_response = {
-        'orderId': '12345',
-        'status': 'Order Approved',
-        'suggestedBooks': [
-            {'bookId': suggestions[0].bookId, 'title': suggestions[0].title, 'author': suggestions[0].author},
-        ]
+    return {
+        "orderId":order_id,
+        "status":"FAILED"
     }
-
-    return order_status_response
 
 
 if __name__ == '__main__':
+    grpc_thread = threading.Thread(
+        target=start_grpc,
+        daemon=True
+    )
+    grpc_thread.start()
+
     # Run the app in debug mode to enable hot reloading.
     # This is useful for development.
     # The default port is 5000.
-    app.run(host='0.0.0.0')
+    app.run(host='0.0.0.0', threaded=True)

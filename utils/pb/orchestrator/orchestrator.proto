@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+service CheckoutResultService {
+  rpc ReportResult (ResultMessage) returns (Ack);
+}
+
+message ResultMessage {
+  string orderId = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message Ack {
+  bool received = 1;
+}
