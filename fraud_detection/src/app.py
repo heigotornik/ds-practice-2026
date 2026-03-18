@@ -52,13 +52,33 @@ logger = logging.getLogger(__name__)
 #         return response
 
 class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
+    def __init__(self):
+        self.orders = {}
+
+    def InitOrder(self, request, context):
+        logger.info(f"Received InitOrder request for transaction {request.id}")
+        self.orders[request.id] = request.order
+        return fraud_detection.InitOrderResponse(ok=True)
+
     def DetectFraud(self, request, context):
         logger.debug("Received request %s", request)
+
+        if request.id not in self.orders:
+            return fraud_detection.VerifyResponse(
+                isValid=False,
+                message="Order ID not found. Please initialize the order first."
+            )
+
+        order = self.orders[request.id]
+
         response = fraud_detection.FraudResponse()
-        if request.card_number == '1234123412341234':
-            response.is_fraud = True # this is fraud
+        if order.creditCard.number == '1234123412341234':
+            response.is_fraud = True
+            response.message = "Order is fraud."
         else:
             response.is_fraud = False # this is not fraud
+            response.message = "Order is not a fraud."
+
         logger.debug("Returning response %s", response)
         return response
 

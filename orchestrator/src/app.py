@@ -15,7 +15,7 @@ from flask_cors import CORS
 import json
 import uuid
 
-from fraud_api import check_fraud
+from fraud_api import check_fraud, init_fraud_detection_data
 from exceptions import FraudulentCheckout, InvalidCheckout
 from verification_api import  init_verification_data, verify
 from suggestion_api import suggest
@@ -54,18 +54,6 @@ def invalid_api_usage(e):
 def invalid_api_usage(e):
     return jsonify(e.to_dict()), e.status_code
 
-
-# Define a GET endpoint.
-@app.route('/', methods=['GET'])
-def index():
-    """
-    Responds with boolean describing fraud or not when a GET request is made to '/' endpoint.
-    """
-    # Test the fraud-detection gRPC service.
-    response = check_fraud()
-    # Return the response.
-    return str(response)
-
 @app.route('/checkout', methods=['POST'])
 def checkout():
     """
@@ -77,20 +65,16 @@ def checkout():
     app.logger.info("Received checkout: %s", request.data)
     order_id = str(uuid.uuid4())
     init_verification_data(order_id, request_data)
-
-    card_number = request_data.get("creditCard").get("number")
-    order_amount = len(request_data.get("items", []))
+    init_fraud_detection_data(order_id, request_data)
 
     verify_future = EXECUTOR.submit(verify, order_id)
 
 
-    fraud_future = EXECUTOR.submit(check_fraud,
-                                   card_number=card_number,
-                                   order_amount=order_amount)
+    fraud_future = EXECUTOR.submit(check_fraud, order_id)
     suggest_future = EXECUTOR.submit(suggest)
 
     is_valid, msg = verify_future.result()
-    is_fraudulent = fraud_future.result()
+    is_fraudulent, _ = fraud_future.result()
     suggestions = suggest_future.result()
 
 
