@@ -15,12 +15,20 @@ from flask_cors import CORS
 import json
 import uuid
 import threading
+import logging
+from concurrent import futures
+import grpc
 
 from fraud_api import check_fraud, init_fraud_detection_data
 from exceptions import FraudulentCheckout, InvalidCheckout
-from orchestrator_api import start_grpc
 from verification_api import  init_verification_data
 from concurrent.futures import ThreadPoolExecutor
+
+FILE = __file__ if '__file__' in globals() else os.getenv("PYTHONFILE", "")
+orchestrator_grpc_path = os.path.abspath(os.path.join(FILE, '../../../utils/pb/orchestrator'))
+sys.path.insert(0, orchestrator_grpc_path)
+import orchestrator_pb2 as orchestrator
+import orchestrator_pb2_grpc as orchestrator_grpc
 
 dictConfig({
     'version': 1,
@@ -49,22 +57,27 @@ ORDER_STATE = {}
 TOTAL_SERVICES_TO_CHECK = 1  # We only need a "success" message from suggestions service
 LOCK = threading.Lock()
 
-def update_order(order_id, success, message):
-    with LOCK:
-        order = ORDER_STATE.get(order_id)
-        if not order:
-            return
+class CheckoutResultService(
+    orchestrator_grpc.CheckoutResultServiceServicer):
 
-        if not success:
-            order["success"] = False
-            order["message"] = message
-            order["done"].set()
-            return
+    def ReportResult(self, request, context):
+        with LOCK:
+            order = ORDER_STATE.get(request.order_id)
+            if not order:
+                return
 
-        order["responses"] += 1
-        if order["responses"] == TOTAL_SERVICES_TO_CHECK:
-            order["message"] = message
-            order["done"].set()
+            if not request.success:
+                order["success"] = False
+                order["message"] = request.message
+                order["done"].set()
+                return
+
+            order["responses"] += 1
+            if order["responses"] == TOTAL_SERVICES_TO_CHECK:
+                order["message"] = request.message
+                order["done"].set()
+        return orchestrator.Ack(received=True)
+
 
 @app.errorhandler(InvalidCheckout)
 def invalid_api_usage(e):
@@ -107,6 +120,19 @@ def checkout():
         "status":"FAILED"
     }
 
+def start_grpc():
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=10)
+    )
+    orchestrator_grpc.add_CheckoutResultServiceServicer_to_server(
+        CheckoutResultService(),
+        server
+    )
+
+    server.add_insecure_port('[::]:50050')
+    server.start()
+    logging.info("Server started. Listening on port 50050")
+    server.wait_for_termination()
 
 if __name__ == '__main__':
     grpc_thread = threading.Thread(
