@@ -14,17 +14,19 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12orchestrator.proto\"B\n\rResultMessage\x12\x0f\n\x07orderId\x18\x01 \x01(\t\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x0f\n\x07message\x18\x03 \x01(\t\"\x17\n\x03\x41\x63k\x12\x10\n\x08received\x18\x01 \x01(\x08\x32=\n\x15\x43heckoutResultService\x12$\n\x0cReportResult\x12\x0e.ResultMessage\x1a\x04.Ackb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12orchestrator.proto\"b\n\x0e\x43heckoutResult\x12\x0f\n\x07orderId\x18\x01 \x01(\t\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x0f\n\x07message\x18\x03 \x01(\t\x12\x1d\n\x0esuggestedBooks\x18\x04 \x03(\x0b\x32\x05.Book\"5\n\x04\x42ook\x12\x0e\n\x06\x62ookId\x18\x01 \x01(\x05\x12\r\n\x05title\x18\x02 \x01(\t\x12\x0e\n\x06\x61uthor\x18\x03 \x01(\t\"\x17\n\x03\x41\x63k\x12\x10\n\x08received\x18\x01 \x01(\x08\x32>\n\x15\x43heckoutResultService\x12%\n\x0cReportResult\x12\x0f.CheckoutResult\x1a\x04.Ackb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'orchestrator_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
-  _globals['_RESULTMESSAGE']._serialized_start=22
-  _globals['_RESULTMESSAGE']._serialized_end=88
-  _globals['_ACK']._serialized_start=90
-  _globals['_ACK']._serialized_end=113
-  _globals['_CHECKOUTRESULTSERVICE']._serialized_start=115
-  _globals['_CHECKOUTRESULTSERVICE']._serialized_end=176
+  _globals['_CHECKOUTRESULT']._serialized_start=22
+  _globals['_CHECKOUTRESULT']._serialized_end=120
+  _globals['_BOOK']._serialized_start=122
+  _globals['_BOOK']._serialized_end=175
+  _globals['_ACK']._serialized_start=177
+  _globals['_ACK']._serialized_end=200
+  _globals['_CHECKOUTRESULTSERVICE']._serialized_start=202
+  _globals['_CHECKOUTRESULTSERVICE']._serialized_end=264
 # @@protoc_insertion_point(module_scope)

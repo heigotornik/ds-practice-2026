@@ -1,13 +1,20 @@
 syntax = "proto3";
 
 service CheckoutResultService {
-  rpc ReportResult (ResultMessage) returns (Ack);
+  rpc ReportResult (CheckoutResult) returns (Ack);
 }
 
-message ResultMessage {
+message CheckoutResult {
   string orderId = 1;
   bool success = 2;
   string message = 3;
+  repeated Book suggestedBooks = 4;
+}
+
+message Book{
+    int32 bookId = 1;
+    string title = 2;
+    string author = 3;
 }
 
 message Ack {

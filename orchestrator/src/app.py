@@ -74,7 +74,9 @@ class CheckoutResultService(
 
             order["responses"] += 1
             if order["responses"] == TOTAL_SERVICES_TO_CHECK:
+                order["success"] = True
                 order["message"] = request.message
+                order["suggested_books"] = request.suggestedBooks
                 order["done"].set()
         return orchestrator.Ack(received=True)
 

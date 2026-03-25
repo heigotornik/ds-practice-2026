@@ -16,7 +16,7 @@ class CheckoutResultServiceStub(object):
         """
         self.ReportResult = channel.unary_unary(
                 '/CheckoutResultService/ReportResult',
-                request_serializer=orchestrator__pb2.ResultMessage.SerializeToString,
+                request_serializer=orchestrator__pb2.CheckoutResult.SerializeToString,
                 response_deserializer=orchestrator__pb2.Ack.FromString,
                 )
 
@@ -35,7 +35,7 @@ def add_CheckoutResultServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'ReportResult': grpc.unary_unary_rpc_method_handler(
                     servicer.ReportResult,
-                    request_deserializer=orchestrator__pb2.ResultMessage.FromString,
+                    request_deserializer=orchestrator__pb2.CheckoutResult.FromString,
                     response_serializer=orchestrator__pb2.Ack.SerializeToString,
             ),
     }
@@ -60,7 +60,7 @@ class CheckoutResultService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/CheckoutResultService/ReportResult',
-            orchestrator__pb2.ResultMessage.SerializeToString,
+            orchestrator__pb2.CheckoutResult.SerializeToString,
             orchestrator__pb2.Ack.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
