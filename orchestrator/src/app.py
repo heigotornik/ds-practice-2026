@@ -107,16 +107,15 @@ def checkout():
     if not finished:
         return {"status":"FAILED"},408
 
-    if ORDER_STATE[order_id]["success"]:
+    order = ORDER_STATE[order_id]
+    if order["success"]:
         return {
             "orderId":order_id,
-            "status":"SUCCESS"
-            # TODO:
-            # 'suggestedBooks': [
-            #     {'bookId': suggestions[0].bookId, 'title': suggestions[0].title, 'author': suggestions[0].author},
-            # ]
+            "status":"SUCCESS",
+            'suggestedBooks': [
+                {'bookId': order["suggested_books"][0].bookId, 'title': order["suggested_books"][0].title, 'author': order["suggested_books"][0].author},
+            ]
         }
-
     return {
         "orderId":order_id,
         "status":"FAILED"
