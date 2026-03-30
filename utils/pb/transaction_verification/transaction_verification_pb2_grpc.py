@@ -14,10 +14,10 @@ class VerificationServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.Verify = channel.unary_unary(
-                '/verification.VerificationService/Verify',
-                request_serializer=transaction__verification__pb2.VerifyRequest.SerializeToString,
-                response_deserializer=transaction__verification__pb2.VerifyResponse.FromString,
+        self.UpdateStatus = channel.unary_unary(
+                '/verification.VerificationService/UpdateStatus',
+                request_serializer=transaction__verification__pb2.StatusUpdateRequest.SerializeToString,
+                response_deserializer=transaction__verification__pb2.StatusUpdateResponse.FromString,
                 )
         self.InitOrder = channel.unary_unary(
                 '/verification.VerificationService/InitOrder',
@@ -29,7 +29,7 @@ class VerificationServiceStub(object):
 class VerificationServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def Verify(self, request, context):
+    def UpdateStatus(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -44,10 +44,10 @@ class VerificationServiceServicer(object):
 
 def add_VerificationServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'Verify': grpc.unary_unary_rpc_method_handler(
-                    servicer.Verify,
-                    request_deserializer=transaction__verification__pb2.VerifyRequest.FromString,
-                    response_serializer=transaction__verification__pb2.VerifyResponse.SerializeToString,
+            'UpdateStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateStatus,
+                    request_deserializer=transaction__verification__pb2.StatusUpdateRequest.FromString,
+                    response_serializer=transaction__verification__pb2.StatusUpdateResponse.SerializeToString,
             ),
             'InitOrder': grpc.unary_unary_rpc_method_handler(
                     servicer.InitOrder,
@@ -65,7 +65,7 @@ class VerificationService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def Verify(request,
+    def UpdateStatus(request,
             target,
             options=(),
             channel_credentials=None,
@@ -75,9 +75,9 @@ class VerificationService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/verification.VerificationService/Verify',
-            transaction__verification__pb2.VerifyRequest.SerializeToString,
-            transaction__verification__pb2.VerifyResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/verification.VerificationService/UpdateStatus',
+            transaction__verification__pb2.StatusUpdateRequest.SerializeToString,
+            transaction__verification__pb2.StatusUpdateResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
