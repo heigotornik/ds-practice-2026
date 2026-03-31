@@ -1,10 +1,15 @@
 ## Events:
 
 (event) a: transaction-verification service verifies if the order items (books) are not an empty list.
+
 (event) b: transaction-verification service verifies if all mandatory user data (name, contact, address…) is filled in.
+
 (event) c: transaction-verification service verifies if the credit card information is in the correct format.
+
 (event) d: fraud-detection service checks the user data for fraud.
+
 (event) e: fraud-detection service checks the credit card data for fraud.
+
 (event) f: suggestions service generates book suggestions.
 
 ## Relations
@@ -108,3 +113,5 @@ Cases:
 
 - **(3,2,5,1) < (3,2,5,1) - post event (e) received**
 - (3,2,5,1) ≮ (0,0,0,0) - initial state
+
+![Event ordering](./images/DS-events.svg)

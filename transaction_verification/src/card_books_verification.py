@@ -39,16 +39,21 @@ class CardBookVerificationProcess(Subservice):
     def get_service_events(self):
         return {
             (3,0,0,0): self.cleanup,
-            (2,0,0,0): self.send_status_update,
+            (2,0,0,0): self._send_status_update,
             (1,0,0,0): self._verify_credit_card_async,
             (0,0,0,0): self._verify_books_async,
         }
     
     def update_vector_clock(self, id):
-        self.vc[id] = (self.vc[id][0], self.vc[id][1]+1, self.vc[id][2], self.vc[id][3])
-        self.update_condition()
+        with self.condition:
+            self.vc[id] = (self.vc[id][0] + 1, self.vc[id][1], self.vc[id][2], self.vc[id][3])
+            logger.debug("Updating vector clock for %s to %s", id, str(self.vc[id]))
+            self.update_condition()
     
-      
+    def _send_status_update(self, id):
+        logger.debug("Sending status update to TODO")
+        self.update_vector_clock(id)
+
     def _verify_credit_card_async(self, id):
         logger.debug("Received request id %s", id)
 
@@ -82,6 +87,7 @@ class CardBookVerificationProcess(Subservice):
                 isValid=False,
                 message="CVV must be 3 or 4 digits"
             )
+        self.update_vector_clock(id)
 
 
     def _verify_books_async(self, id):
@@ -116,5 +122,6 @@ class CardBookVerificationProcess(Subservice):
                     isValid=False,
                     message=f"Invalid quantity for item '{item.name}'"
                 )
+        self.update_vector_clock(id)
     
     
