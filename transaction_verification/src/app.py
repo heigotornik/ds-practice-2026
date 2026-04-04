@@ -4,6 +4,14 @@ import os
 import sys
 from logging.config import dictConfig
 import logging
+import threading
+from typing import List
+
+from subservice import RunnableEvent
+
+from card_books_verification import CardBookVerificationProcess
+
+from user_verification import UserVerificationProcess
 
 # This set of lines are needed to import the gRPC stubs.
 # The path of the stubs is relative to the current file, or absolute inside the container.
@@ -15,10 +23,13 @@ from interceptors import LoggingInterceptor
 import transaction_verification_pb2 as transaction_verification
 import transaction_verification_pb2_grpc as transaction_verification_grpc
 
+
 import grpc
 from concurrent import futures
 
 
+rpc_executor = futures.ThreadPoolExecutor(max_workers=10)
+background_executor = futures.ThreadPoolExecutor(max_workers=4)
 
 dictConfig({
     'version': 1,
@@ -44,131 +55,80 @@ dictConfig({
 logger = logging.getLogger(__name__)
 
 
+lock = threading.Lock()
+condition = threading.Condition(lock)
+
+
 # Create a class to define the server functions, derived from
 # transaction_verification.VerificationServiceServicer
 class VerificationService(transaction_verification_grpc.VerificationServiceServicer):
 
     def __init__(self):
-        self.orders = {} 
+        self.userVerification = UserVerificationProcess()
+        self.cardBookVerification = CardBookVerificationProcess()
 
+        background_executor.submit(self.worker, self.userVerification)
+        background_executor.submit(self.worker, self.cardBookVerification)
+
+    def worker(self, service):
+        cond = service.condition
+
+        while True:
+            try:
+                with cond:
+                    cond.wait_for(lambda: len(service.get_events_to_run()) > 0)
+                    events = service.get_events_to_run()
+
+                logger.debug("Worker got %d events for %s", len(events), service.__class__.__name__)
+
+                for event in events:
+                    service.add_task_running(event.id)
+                    background_executor.submit(event.action, event.id)
+            except Exception:
+                logger.exception("Worker crashed for %s", service.__class__.__name__)
+                raise
+   
     def InitOrder(self, request, context):
         logger.info(f"Received InitOrder request for transaction {request.id}")
-        self.orders[request.id] = request.order
+        self.cardBookVerification.initialize_order(request.id, request.order)
+        self.userVerification.initialize_order(request.id, request.order)
         return transaction_verification.InitOrderResponse(ok=True)
+    
+    def UpdateStatus(self, request, context):
+        logger.info(
+            "Received UpdateStatus request for transaction %s with vc=%s",
+            request.id,
+            request.vc
+        )
 
-    def Verify(self, request, context):
-        # These checks were added using ChatGPT 5.2
-        # with promt "Add basic validation using the .proto file specified"
-        # and adding the .proto file
-        # The checks include:
-        # - User verification: checks if the user name and contact information are provided.
-        # - Terms verification: checks if the terms and conditions are accepted.
-        # - Items verification: checks if at least one item is included and if each item has a valid name and quantity.
-        # - Credit card verification: checks if the credit card number is in a valid format
-
-        # logging added manually
-        logger.debug("Received request %s", request)
-
-        if request.id not in self.orders:
-            return transaction_verification.VerifyResponse(
-                isValid=False,
+        if request.id not in self.userVerification.orders and \
+        request.id not in self.cardBookVerification.orders:
+            return transaction_verification.UpdateStatusResponse(
+                ok=False,
                 message="Order ID not found. Please initialize the order first."
             )
-        
-        order = self.orders[request.id]
-        logger.debug("Order data for transaction %s exists", request.id)
 
-        # ---- User verification ----
-        logger.debug("Running user verification")
-        if not order.user.name.strip():
-            return transaction_verification.VerifyResponse(
-                isValid=False,
-                message="User name is required"
-            )
+        incoming_vc = tuple(request.vc)
 
-        if not order.user.contact.strip():
-            return transaction_verification.VerifyResponse(
-                isValid=False,
-                message="User contact is required"
-            )
-
-        logger.debug("Running terms verification")
-        # ---- Terms verification ----
-        if not order.termsAccepted:
-            return transaction_verification.VerifyResponse(
-                isValid=False,
-                message="Terms and conditions must be accepted"
-            )
-
-        logger.debug("Running items verification")
-        # ---- Items verification ----
-        if len(order.items) == 0:
-            return transaction_verification.VerifyResponse(
-                isValid=False,
-                message="At least one item must be included"
-            )
-
-        for item in order.items:
-            if not item.name.strip():
-                return transaction_verification.VerifyResponse(
-                    isValid=False,
-                    message="Each item must have a name"
-                )
-
-            if item.quantity <= 0:
-                return transaction_verification.VerifyResponse(
-                    isValid=False,
-                    message=f"Invalid quantity for item '{item.name}'"
-                )
-
-        logger.debug("Running credit card verification")
-        # ---- Credit card verification ----
-        cc = order.creditCard
-        cc_number = re.sub(r"[\s-]", "", cc.number)
-
-        if not cc_number.isdigit() or len(cc_number) < 13 or len(cc_number) > 19:
-            return transaction_verification.VerifyResponse(
-                isValid=False,
-                message="Credit card number format is invalid"
-            )
-
-        if not re.match(r"^(0[1-9]|1[0-2])\/\d{2}$", cc.expirationDate):
-            return transaction_verification.VerifyResponse(
-                isValid=False,
-                message="Expiration date must be in MM/YY format"
-            )
-
-        if not cc.cvv.isdigit() or len(cc.cvv) not in (3, 4):
-            return transaction_verification.VerifyResponse(
-                isValid=False,
-                message="CVV must be 3 or 4 digits"
-            )
-
-        logger.debug("Running billing address verification")
-        # ---- Billing address verification ----
-        addr = order.billingAddress
-        if not addr.street.strip() or not addr.city.strip():
-            return transaction_verification.VerifyResponse(
-                isValid=False,
-                message="Billing address street and city are required"
-            )
-
-        if not addr.country.strip():
-            return transaction_verification.VerifyResponse(
-                isValid=False,
-                message="Billing address country is required"
-            )
-
-        # ---- Success ----
-        logger.info("All verification checks successful for order ID %s", request.id)
-        return transaction_verification.VerifyResponse(
-            isValid=True,
-            message="Checkout request verified successfully"
+        logger.debug(
+            "Merging VC for transaction %s into both services: %s",
+            request.id,
+            incoming_vc
         )
+
+        self.userVerification.update_with_incoming_vector_clock(request.id, incoming_vc)
+        self.cardBookVerification.update_with_incoming_vector_clock(request.id, incoming_vc)
+
+        return transaction_verification.UpdateStatusResponse(
+            ok=True,
+            message="Status updated successfully"
+        )
+
+
 
 def serve():
     # Create a gRPC server
-    server = grpc.server(futures.ThreadPoolExecutor(),
+    server = grpc.server(rpc_executor,
                          interceptors=[LoggingInterceptor()])
     # Add VerificationService
     transaction_verification_grpc.add_VerificationServiceServicer_to_server(VerificationService(), server)

@@ -11,11 +11,29 @@ class InitOrderResponse(_message.Message):
     ok: bool
     def __init__(self, ok: bool = ...) -> None: ...
 
-class VerifyRequest(_message.Message):
-    __slots__ = ("id",)
+class StatusUpdateRequest(_message.Message):
+    __slots__ = ("id", "TransactionServiceA", "TransactionServiceB", "FraudDetection", "Suggestions")
     ID_FIELD_NUMBER: _ClassVar[int]
+    TRANSACTIONSERVICEA_FIELD_NUMBER: _ClassVar[int]
+    TRANSACTIONSERVICEB_FIELD_NUMBER: _ClassVar[int]
+    FRAUDDETECTION_FIELD_NUMBER: _ClassVar[int]
+    SUGGESTIONS_FIELD_NUMBER: _ClassVar[int]
     id: str
-    def __init__(self, id: _Optional[str] = ...) -> None: ...
+    TransactionServiceA: int
+    TransactionServiceB: int
+    FraudDetection: int
+    Suggestions: int
+    def __init__(self, id: _Optional[str] = ..., TransactionServiceA: _Optional[int] = ..., TransactionServiceB: _Optional[int] = ..., FraudDetection: _Optional[int] = ..., Suggestions: _Optional[int] = ...) -> None: ...
+
+class StatusUpdateResponse(_message.Message):
+    __slots__ = ("id", "ok", "message")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    OK_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    ok: bool
+    message: str
+    def __init__(self, id: _Optional[str] = ..., ok: bool = ..., message: _Optional[str] = ...) -> None: ...
 
 class OrderData(_message.Message):
     __slots__ = ("user", "creditCard", "userComment", "items", "billingAddress", "shippingMethod", "giftWrapping", "termsAccepted")
