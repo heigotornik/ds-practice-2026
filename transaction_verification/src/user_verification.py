@@ -37,16 +37,16 @@ logger = logging.getLogger(__name__)
 class UserVerificationProcess(Subservice):
     def get_service_events(self):
         return {
-            (0,2,0,0): self.cleanup,
-            (0,1,0,0): self._send_status_update,
-            (0,0,0,0): self._verify_user_data_async,
+            (0,2,0,0): self.event_with_cleanup(self.cleanup),
+            (0,1,0,0): self.event_with_cleanup(self._send_status_update),
+            (0,0,0,0): self.event_with_cleanup(self._verify_user_data_async),
         }
     
     def update_vector_clock(self, id):
         with self.condition:
             self.vc[id] = (self.vc[id][0], self.vc[id][1]+1, self.vc[id][2], self.vc[id][3])
             logger.debug("Updating vector clock for %s to %s", id, str(self.vc[id]))
-            self.update_condition()
+            self.condition.notify()
 
     def _send_status_update(self, id):
         logger.debug("Sending status update to TODO")

@@ -66,15 +66,12 @@ class VerificationService(transaction_verification_grpc.VerificationServiceServi
     def __init__(self):
         self.userVerification = UserVerificationProcess()
         self.cardBookVerification = CardBookVerificationProcess()
-        
-        self.userVerificationCondition = self.userVerification.get_condition() 
-        self.cardBookCondition = self.cardBookVerification.get_condition()  
 
         background_executor.submit(self.worker, self.userVerification)
         background_executor.submit(self.worker, self.cardBookVerification)
 
     def worker(self, service):
-        cond = service.get_condition()
+        cond = service.condition
 
         while True:
             try:
@@ -85,21 +82,8 @@ class VerificationService(transaction_verification_grpc.VerificationServiceServi
                 logger.debug("Worker got %d events for %s", len(events), service.__class__.__name__)
 
                 for event in events:
-                    key = (event.id, event.action.__name__)
-
-                    with service.get_condition():
-                        if key in service.in_flight:
-                            continue
-                        service.in_flight.add(key)
-
-                    def run_and_release():
-                        try:
-                            event.action(event.id)
-                        finally:
-                            with service.get_condition():
-                                service.in_flight.discard(key)
-
-                    background_executor.submit(run_and_release)
+                    service.add_task_running(event.id)
+                    background_executor.submit(event.action, event.id)
             except Exception:
                 logger.exception("Worker crashed for %s", service.__class__.__name__)
                 raise

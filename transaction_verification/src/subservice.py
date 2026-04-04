@@ -13,63 +13,88 @@ class RunnableEvent:
 
 class Subservice:
     def __init__(self):
-        self.in_flight = set()
         self.orders = {}
-        self.vc = {}
+
+        # VC updating
         self.lock = threading.RLock()
         self.condition = threading.Condition(self.lock)
+        self.vc = {}
+        # ID to events
+        # no multiple tasks running with same ID supported 
+        self.tasks_running = set()
         
     def get_service_events(self):
         raise NotImplementedError("service events are not implemented")
 
-    def update_condition(self):
-        logger.debug("Updating condition for %s", self.__class__.__name__)
-        with self.condition:
-            self.condition.notify_all()
-
-    def get_condition(self):
-        return self.condition
+    def _runnable_event_with_cleanup(self, fn, id):
+        try:
+            logger.debug("Running event with cleanup for %s", id)
+            fn(id)
+            logger.debug("Event with cleanup for %s FINISHED", id)
+        except Exception:
+            logger.error("Task failed for ID %s", id)
+        finally:
+            self.remove_task_running(id)
     
-    def create_new_vector_clock_entry(self, id):
+    def event_with_cleanup(self, fn):
+        return lambda ident: self._runnable_event_with_cleanup(fn, ident)
+
+
+    def add_task_running(self, id):
+        with self.condition:
+            self.tasks_running.add(id)
+            logger.debug("Added task running for %s", id)
+            self.condition.notify()
+    
+    def remove_task_running(self, id):
+        with self.condition:
+            self.tasks_running.remove(id)
+            logger.debug("Removed task running for %s", id)
+            self.condition.notify()
+    
+    def _create_new_vector_clock_entry(self, id):
         self.vc[id] = (0,0,0,0)
 
     def initialize_order(self, id, order):
         logger.debug("Received order init with id %s", id)
         with self.condition:
             logger.debug("Initializing order with id %s", id)
-            self.create_new_vector_clock_entry(id)
+            logger.debug("Events %s", str(self.tasks_running))
+            self._create_new_vector_clock_entry(id)
             self.orders[id] = order
-            self.condition.notify_all()
+            self.condition.notify()
     
     def update_vector_clock(self, id):
         raise NotImplementedError("vector clock update is not implemented")
     
     def cleanup(self, id):
-        with self.condition:
+        with self.lock:
             logger.debug("Applying cleanup for %s, order id %s", self.__class__.__name__, id)
             self.orders.pop(id, None)
             self.vc.pop(id, None)
 
     def get_events_to_run(self):
-        with self.condition:
+        with self.lock:
             logger.debug("Getting events to run for %s", self.__class__.__name__)
             events_to_run = []
             for id in list(self.orders):
-                event = self.get_event(id)
+                if id in self.tasks_running:
+                    continue
+                event = self._get_event(id)
                 if event is not None:
                     events_to_run.append(RunnableEvent(id, event))
             logger.debug("Found %d events", len(events_to_run))
             return events_to_run
 
-    def get_event(self, id):
+    def _get_event(self, id):
         for event_vc, action in self.get_service_events().items():
             if all(self.vc[id][i] >= event_vc[i] for i in range(len(self.vc[id]))):
-                logger.debug("%s | %s", str(self.vc[id]), str(event_vc))
+                logger.debug("%s", str(self.vc))
                 return action
         return None
     
     def update_with_incoming_vector_clock(self, id, incoming_vc):
-        with self.condition:
+        with self.lock:
             if id not in self.vc:
                 logger.warning("VC update for unknown id %s, initializing", id)
                 self.vc[id] = incoming_vc
@@ -95,5 +120,3 @@ class Subservice:
                 )
 
                 self.vc[id] = merged
-
-            self.condition.notify_all()
