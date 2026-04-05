@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package order_queue;
 
-service OrderQueueServiceService {
+service OrderQueueService {
     rpc Enqueue (EnqueueRequest) returns (EnqueueResponse);
     rpc Dequeue (DequeueRequest) returns (DequeueResponse);
 }

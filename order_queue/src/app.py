@@ -40,33 +40,29 @@ logger = logging.getLogger(__name__)
 # Create a class to define the server functions, derived from
 # fraud_detection_pb2_grpc.HelloServiceServicer
 class OrderQueueService(order_queue_grpc.OrderQueueServiceServicer):
-    def __init__(self, svc_idx=2, total_svcs=3):
-        self._lock = threading.Lock()
-        self._queue = []
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.queue = []
 
     def Enqueue(self, request, context):
         result = True 
-        self._lock.acquire()
-        try:
-            self._queue.append(request.id)
-        except:
-            result = False
-            logger.error("Failed to enqueue order")
-        self._lock.release()
+        with self.lock:
+            try:
+                self.queue.append(request.id)
+            except:
+                result = False
+                logger.error("Failed to enqueue order")
         return order_queue.EnqueueResponse(ok=result)
         
 
     def Dequeue(self, request, context):
-        self._lock.acquire()
-        result = None
-        try:
-            result = self._queue.pop()
-        except:
-            logger.error("Failed to dequeue order")
-        self._lock.release()
+        with self.lock:
+            result = None
+            try:
+                result = self.queue.pop()
+            except:
+                logger.error("Failed to dequeue order")
         return order_queue.DequeueResponse(id=result)
-
-
 
 
 def serve():
