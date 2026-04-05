@@ -62,15 +62,21 @@ class CheckoutResultService(
 
     def ReportResult(self, request, context):
         with LOCK:
-            order = ORDER_STATE.get(request.order_id)
+            app.logger.info(
+                "Received result orderId=%s success=%s message=%s",
+                request.orderId,
+                request.success,
+                request.message
+            )
+            order = ORDER_STATE.get(request.orderId)
             if not order:
-                return
+                return orchestrator.Ack(received=False)
 
             if not request.success:
                 order["success"] = False
                 order["message"] = request.message
                 order["done"].set()
-                return
+                return orchestrator.Ack(received=True)
 
             order["responses"] += 1
             if order["responses"] == TOTAL_SERVICES_TO_CHECK:
@@ -102,6 +108,12 @@ def checkout():
     init_verification_data(order_id, request_data)
     init_fraud_detection_data(order_id, request_data)
 
+    ORDER_STATE[order_id] = {
+        "success": False,
+        "message": "",
+        "suggested_books": [],
+        "done": threading.Event()
+    }
     finished = ORDER_STATE[order_id]["done"].wait(timeout=10)
 
     if not finished:
@@ -111,14 +123,16 @@ def checkout():
     if order["success"]:
         return {
             "orderId":order_id,
-            "status":"SUCCESS",
+            "status":"Order Approved",
             'suggestedBooks': [
                 {'bookId': order["suggested_books"][0].bookId, 'title': order["suggested_books"][0].title, 'author': order["suggested_books"][0].author},
             ]
         }
     return {
         "orderId":order_id,
-        "status":"FAILED"
+        "status":"FAILED",
+        "message":order["message"],
+        'suggestedBooks': []
     }
 
 def start_grpc():

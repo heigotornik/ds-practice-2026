@@ -269,7 +269,8 @@ Please handle with care.</textarea
                           result.status === "Order Approved"
                             ? `Suggested Books:
                             <ul class="list-disc pl-5 mt-2 space-y-1">${suggestedBooks}</ul>`
-                            : ``
+                            : `Error message:
+                            ${result.message}`
                         }
                     `;
               color = result.status === "Order Approved" ? "green" : "red";

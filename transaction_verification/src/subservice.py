@@ -1,8 +1,17 @@
-
-
 from dataclasses import dataclass
 import logging
 import threading
+import os
+import sys
+import grpc
+
+FILE = __file__ if '__file__' in globals() else os.getenv("PYTHONFILE", "")
+orchestrator_grpc_path = os.path.abspath(os.path.join(FILE, '../../../utils/pb/orchestrator'))
+sys.path.insert(0, orchestrator_grpc_path)
+from interceptors import LoggingInterceptor
+import orchestrator_pb2 as orchestrator
+import orchestrator_pb2_grpc as orchestrator_grpc
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,6 +31,10 @@ class Subservice:
         # ID to events
         # no multiple tasks running with same ID supported 
         self.tasks_running = set()
+
+        # Create connection to orchestrator
+        channel = grpc.insecure_channel("orchestrator:50050")
+        self.orchestrator_stub = orchestrator_grpc.CheckoutResultServiceStub(channel)
         
     def get_service_events(self):
         raise NotImplementedError("service events are not implemented")
@@ -29,12 +42,42 @@ class Subservice:
     def _runnable_event_with_cleanup(self, fn, id):
         try:
             logger.debug("Running event with cleanup for %s", id)
-            fn(id)
+            verify_response = fn(id)
             logger.debug("Event with cleanup for %s FINISHED", id)
-        except Exception:
+
+            if verify_response is not None and not verify_response.isValid:
+                logger.error("Request is not valid %s", id)
+                # Clean up in case of errors to avoid looping the same event.
+                self.cleanup(id)
+                self._notify_orchestrator_failure(
+                    id,
+                    verify_response.message
+                )
+
+        except Exception as e:
             logger.error("Task failed for ID %s", id)
+            # Clean up in case of errors to avoid looping the same event.
+            self.cleanup(id)
+            self._notify_orchestrator_failure(
+                id,
+                str(e)
+            )
         finally:
             self.remove_task_running(id)
+
+    def _notify_orchestrator_failure(self, order_id, message):
+        logger.info("Notifying orchestrator about failure: %s", message)
+        request = orchestrator.CheckoutResult(
+            orderId=order_id,
+            success=False,
+            message=message
+        )
+        try:
+            self.orchestrator_stub.ReportResult(request)
+
+        except grpc.RpcError:
+            logger.exception("Failed to notify orchestrator")
+   
     
     def event_with_cleanup(self, fn):
         return lambda ident: self._runnable_event_with_cleanup(fn, ident)
