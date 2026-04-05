@@ -14,6 +14,7 @@ import grpc
 from concurrent import futures
 from logging.config import dictConfig
 import logging
+import threading
 
 dictConfig({
     'version': 1,
@@ -51,25 +52,47 @@ logger = logging.getLogger(__name__)
 #         # Return the response object
 #         return response
 
+background_executor = futures.ThreadPoolExecutor(max_workers=4)
 class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
-    def __init__(self):
+    def __init__(self, svc_idx = 0, total_svcs = 3):
+        self.svc_idx = svc_idx
+        self.total_svcs = total_svcs
+        self._lock = threading.Lock()
         self.orders = {}
+        self.orderIds = []
+        self.eventClocks = {
+            (0, 2, 1, 0) : self.DetectFraud
+        }
+        background_executor.submit(self.checkClocks)
+
+    def checkClocks(self):
+        while True:
+            for i in range(len(self.orderIds)):
+                clock = tuple(self.orders[self.orderIds[i]]["vc"])
+                if clock in self.eventClocks:
+                    background_executor.submit(self.eventClocks[clock], i)
 
     def InitOrder(self, request, context):
         logger.info(f"Received InitOrder request for transaction {request.id}")
-        self.orders[request.id] = request.order
+        self.orders[request.id] = {"data": request.order, "vc": [0] * self.total_svcs}
+        self.orderIds.append(request.id)
         return fraud_detection.InitOrderResponse(ok=True)
 
-    def DetectFraud(self, request, context):
-        logger.debug("Received request %s", request)
+    def merge_and_increment(self, local_vc, incoming_vc):
+        for i in range(self.total_svcs):
+            local_vc[i] = max(local_vc[i], incoming_vc[i])
+        local_vc[self.svc_idx] += 1
 
-        if request.id not in self.orders:
+    def DetectFraud(self, orderId, context):
+        logger.debug("Received request %s", orderId)
+
+        if orderId not in self.orders:
             return fraud_detection.VerifyResponse(
                 isValid=False,
                 message="Order ID not found. Please initialize the order first."
             )
 
-        order = self.orders[request.id]
+        order = self.orders[orderId]
 
         response = fraud_detection.FraudResponse()
         if order.creditCard.number == '1234123412341234':
