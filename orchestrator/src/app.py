@@ -19,7 +19,8 @@ import logging
 from concurrent import futures
 import grpc
 
-from fraud_api import check_fraud, init_fraud_detection_data
+from fraud_api import init_fraud_detection_data
+from suggestion_api import init_suggestion_data
 from exceptions import FraudulentCheckout, InvalidCheckout
 from verification_api import  init_verification_data
 from concurrent.futures import ThreadPoolExecutor
@@ -107,12 +108,14 @@ def checkout():
     order_id = str(uuid.uuid4())
     init_verification_data(order_id, request_data)
     init_fraud_detection_data(order_id, request_data)
+    init_suggestion_data(order_id, request_data)
 
     ORDER_STATE[order_id] = {
         "success": False,
         "message": "",
         "suggested_books": [],
-        "done": threading.Event()
+        "done": threading.Event(),
+        "responses": 0
     }
     finished = ORDER_STATE[order_id]["done"].wait(timeout=10)
 

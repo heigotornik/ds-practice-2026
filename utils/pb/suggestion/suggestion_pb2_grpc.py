@@ -14,17 +14,28 @@ class SuggestionServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.SuggestBooks = channel.unary_unary(
-                '/suggestion.SuggestionService/SuggestBooks',
-                request_serializer=suggestion__pb2.BookList.SerializeToString,
-                response_deserializer=suggestion__pb2.BookList.FromString,
+        self.UpdateStatus = channel.unary_unary(
+                '/suggestion.SuggestionService/UpdateStatus',
+                request_serializer=suggestion__pb2.StatusUpdateRequest.SerializeToString,
+                response_deserializer=suggestion__pb2.StatusUpdateResponse.FromString,
+                )
+        self.InitOrder = channel.unary_unary(
+                '/suggestion.SuggestionService/InitOrder',
+                request_serializer=suggestion__pb2.InitOrderRequest.SerializeToString,
+                response_deserializer=suggestion__pb2.InitOrderResponse.FromString,
                 )
 
 
 class SuggestionServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def SuggestBooks(self, request, context):
+    def UpdateStatus(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def InitOrder(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -33,10 +44,15 @@ class SuggestionServiceServicer(object):
 
 def add_SuggestionServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'SuggestBooks': grpc.unary_unary_rpc_method_handler(
-                    servicer.SuggestBooks,
-                    request_deserializer=suggestion__pb2.BookList.FromString,
-                    response_serializer=suggestion__pb2.BookList.SerializeToString,
+            'UpdateStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateStatus,
+                    request_deserializer=suggestion__pb2.StatusUpdateRequest.FromString,
+                    response_serializer=suggestion__pb2.StatusUpdateResponse.SerializeToString,
+            ),
+            'InitOrder': grpc.unary_unary_rpc_method_handler(
+                    servicer.InitOrder,
+                    request_deserializer=suggestion__pb2.InitOrderRequest.FromString,
+                    response_serializer=suggestion__pb2.InitOrderResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -49,7 +65,7 @@ class SuggestionService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def SuggestBooks(request,
+    def UpdateStatus(request,
             target,
             options=(),
             channel_credentials=None,
@@ -59,8 +75,25 @@ class SuggestionService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/suggestion.SuggestionService/SuggestBooks',
-            suggestion__pb2.BookList.SerializeToString,
-            suggestion__pb2.BookList.FromString,
+        return grpc.experimental.unary_unary(request, target, '/suggestion.SuggestionService/UpdateStatus',
+            suggestion__pb2.StatusUpdateRequest.SerializeToString,
+            suggestion__pb2.StatusUpdateResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def InitOrder(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/suggestion.SuggestionService/InitOrder',
+            suggestion__pb2.InitOrderRequest.SerializeToString,
+            suggestion__pb2.InitOrderResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
