@@ -5,7 +5,7 @@ package order_executor;
 service OrderExecutorService {
   rpc Election(ElectionRequest) returns (ElectionResponse);
   rpc Coordinator(CoordinatorRequest) returns (CoordinatorResponse);
-  rpc Heartbeat(Empty) returns (Empty);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
 }
 
 
@@ -25,4 +25,10 @@ message CoordinatorResponse {
   bool acknowledged = 1;
 }
 
-message Empty {}
+message HeartbeatRequest {
+  int32 requesting_node = 1;
+}
+
+message HeartbeatResponse {
+  int32 responding_node = 1;
+}

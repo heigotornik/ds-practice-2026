@@ -5,7 +5,7 @@ x-executor-base: &executor-base
     dockerfile: ./order_executor/Dockerfile
   environment: &executor-env
     PYTHONUNBUFFERED: "TRUE"
-    EXECUTORS: "[1, 2, 3]"
+    EXECUTORS: '[["1", "executor_1:50055"], ["2", "executor_2:50056"], ["3", "executor_3:50057"]]'
     PYTHONFILE: /app/order_executor/src/app.py
   volumes:
     - ./utils:/app/utils
@@ -137,26 +137,29 @@ services:
       # Mount the suggestions/src directory in the current directory to the /app/order_queue/src directory in the container
       - ./order_queue/src:/app/order_queue/src
 
-  executor-1:
+  executor_1:
     <<: *executor-base
     ports:
       - "50055:50055"
     environment:
       <<: *executor-env
+      PORT: "50055"
       EXECUTOR_ID: "1"
 
-  executor-2:
+  executor_2:
     <<: *executor-base
     ports:
-      - "50056:50055"
+      - "50056:50056"
     environment:
       <<: *executor-env
+      PORT: "50056"
       EXECUTOR_ID: "2"
 
-  executor-3:
+  executor_3:
     <<: *executor-base
     ports:
-      - "50057:50055"
+      - "50057:50057"
     environment:
       <<: *executor-env
+      PORT: "50057"
       EXECUTOR_ID: "3"

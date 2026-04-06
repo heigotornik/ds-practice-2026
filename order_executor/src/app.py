@@ -77,8 +77,8 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
         
     def _leader_election(self):
         higher_nodes = [
-            nid for nid in self.known_ids
-            if nid < self.executor_id
+            (nid, addr) for nid, addr in self.known_ids
+            if nid > self.executor_id
         ]
 
         logger.debug("Higher nodes to contact during election: %s", higher_nodes)
@@ -86,13 +86,12 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
         while True:
             got_response = False
 
-            for nid in higher_nodes:
+            for nid, addr in higher_nodes:
                 try:
-                    with grpc.insecure_channel(f'executor-{nid}:50055') as channel:
+                    with grpc.insecure_channel(addr) as channel:
                         stub = order_executor_grpc.OrderExecutorServiceStub(channel)
                         resp = stub.Election(
                             order_executor.ElectionRequest(node_id=self.executor_id),
-                            timeout=2
                         )
                         if resp.ok:
                             got_response = True
@@ -118,25 +117,36 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
             self.leader_id = self.executor_id
             self.election_in_progress = False
 
-        for nid in self.known_ids:
+        for nid, addr in self.known_ids:
             if nid != self.executor_id:
                 try:
-                    with grpc.insecure_channel(f'executor-{nid}:50055') as channel:
+                    with grpc.insecure_channel(addr) as channel:
                         stub = order_executor_grpc.OrderExecutorServiceStub(channel)
                         stub.Coordinator(
                             order_executor.CoordinatorRequest(leader_id=self.executor_id),
-                            timeout=2
                         )
                 except grpc.RpcError:
-                    logger.debug("Channel %s", f'executor-{nid}:50055')
+                    logger.debug("Channel %s", addr)
                     logger.debug("Failed to notify node %d  about new leader. It might be down.", nid)
                     # node might be down, but this node is the leader anyway
                     continue
 
+    def _get_leader_address(self):
+        with self.lock:
+            leader_id = self.leader_id
+        for nid, addr in self.known_ids:
+            if nid == leader_id:
+                return addr
+        return None
+
     def _send_heartbeat(self):
-        with grpc.insecure_channel(f'executor-{self.leader_id}:50055') as channel:
+        leader_addr = self._get_leader_address()
+        if leader_addr is None:
+            logger.warning("No leader address found. Cannot send heartbeat.")
+            return
+        with grpc.insecure_channel(leader_addr) as channel:
             stub = order_executor_grpc.OrderExecutorServiceStub(channel)
-            stub.Heartbeat(order_executor.Empty(), timeout=2)
+            stub.Heartbeat(order_executor.HeartbeatRequest(requesting_node=self.executor_id))
 
     def run(self):
         while True:
@@ -157,32 +167,38 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
             time.sleep(5)
 
     def Election(self, request, context):
+        logger.info("Received election message from node %d", request.node_id)
         incoming_id = request.node_id
 
         if incoming_id < self.executor_id:
+            logger.info("Node %d has lower ID than self (%d). Responding OK and starting election.", incoming_id, self.executor_id)
             self.start_leader_election()
             return order_executor.ElectionResponse(ok=True)
         return order_executor.ElectionResponse(ok=False)
 
     def Coordinator(self, request, context):
+        logger.info("Node %d is the new leader", request.leader_id)
         with self.lock:
             self.leader_id = request.leader_id
             self.election_in_progress = False
         return order_executor.CoordinatorResponse(acknowledged=True)
 
     def Heartbeat(self, request, context):
-        logger.debug("Received heartbeat from node %d", self.leader_id)
-        return order_executor.Empty()
+        logger.debug("Received heartbeat from node %d", request.requesting_node)
+        return order_executor.HeartbeatResponse(responding_node=self.executor_id)
 
 
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor())
     all_exec_raw = os.getenv("EXECUTORS")
+    logger.debug("Raw EXECUTORS environment variable: %s", all_exec_raw)
     known_ids = json.loads(all_exec_raw)
-    known_ids = [int(nid) for nid in known_ids]
+    known_ids = [(int(nid), addr) for nid, addr in known_ids]
     logger.debug("Known executors: %s", known_ids)
     exec_id = os.getenv("EXECUTOR_ID")
+    port = os.getenv("PORT")
+
 
     if known_ids is None or exec_id is None:
         raise RuntimeError("Environment variables 'EXECUTORS' and 'EXECUTOR_ID' must be set")
@@ -196,11 +212,9 @@ def serve():
     order_executor_grpc.add_OrderExecutorServiceServicer_to_server(
         exec_service, server)
 
-    
-    port = "50055"
     server.add_insecure_port("[::]:" + port)
     server.start()
-    logger.info("Server started. Listening on port 50054.")
+    logger.info("Server started. Listening on port %s.", port)
 
     threading.Thread(target=exec_service.run).start()
     server.wait_for_termination()

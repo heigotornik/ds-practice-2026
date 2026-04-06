@@ -28,6 +28,14 @@ class CoordinatorResponse(_message.Message):
     acknowledged: bool
     def __init__(self, acknowledged: bool = ...) -> None: ...
 
-class Empty(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+class HeartbeatRequest(_message.Message):
+    __slots__ = ("requesting_node",)
+    REQUESTING_NODE_FIELD_NUMBER: _ClassVar[int]
+    requesting_node: int
+    def __init__(self, requesting_node: _Optional[int] = ...) -> None: ...
+
+class HeartbeatResponse(_message.Message):
+    __slots__ = ("responding_node",)
+    RESPONDING_NODE_FIELD_NUMBER: _ClassVar[int]
+    responding_node: int
+    def __init__(self, responding_node: _Optional[int] = ...) -> None: ...

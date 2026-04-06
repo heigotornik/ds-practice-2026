@@ -26,8 +26,8 @@ class OrderExecutorServiceStub(object):
                 )
         self.Heartbeat = channel.unary_unary(
                 '/order_executor.OrderExecutorService/Heartbeat',
-                request_serializer=order__executor__pb2.Empty.SerializeToString,
-                response_deserializer=order__executor__pb2.Empty.FromString,
+                request_serializer=order__executor__pb2.HeartbeatRequest.SerializeToString,
+                response_deserializer=order__executor__pb2.HeartbeatResponse.FromString,
                 )
 
 
@@ -67,8 +67,8 @@ def add_OrderExecutorServiceServicer_to_server(servicer, server):
             ),
             'Heartbeat': grpc.unary_unary_rpc_method_handler(
                     servicer.Heartbeat,
-                    request_deserializer=order__executor__pb2.Empty.FromString,
-                    response_serializer=order__executor__pb2.Empty.SerializeToString,
+                    request_deserializer=order__executor__pb2.HeartbeatRequest.FromString,
+                    response_serializer=order__executor__pb2.HeartbeatResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -126,7 +126,7 @@ class OrderExecutorService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/order_executor.OrderExecutorService/Heartbeat',
-            order__executor__pb2.Empty.SerializeToString,
-            order__executor__pb2.Empty.FromString,
+            order__executor__pb2.HeartbeatRequest.SerializeToString,
+            order__executor__pb2.HeartbeatResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

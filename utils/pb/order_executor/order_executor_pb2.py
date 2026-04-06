@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14order_executor.proto\x12\x0eorder_executor\"\"\n\x0f\x45lectionRequest\x12\x0f\n\x07node_id\x18\x01 \x01(\x05\"\x1e\n\x10\x45lectionResponse\x12\n\n\x02ok\x18\x01 \x01(\x08\"\'\n\x12\x43oordinatorRequest\x12\x11\n\tleader_id\x18\x01 \x01(\x05\"+\n\x13\x43oordinatorResponse\x12\x14\n\x0c\x61\x63knowledged\x18\x01 \x01(\x08\"\x07\n\x05\x45mpty2\xf8\x01\n\x14OrderExecutorService\x12M\n\x08\x45lection\x12\x1f.order_executor.ElectionRequest\x1a .order_executor.ElectionResponse\x12V\n\x0b\x43oordinator\x12\".order_executor.CoordinatorRequest\x1a#.order_executor.CoordinatorResponse\x12\x39\n\tHeartbeat\x12\x15.order_executor.Empty\x1a\x15.order_executor.Emptyb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14order_executor.proto\x12\x0eorder_executor\"\"\n\x0f\x45lectionRequest\x12\x0f\n\x07node_id\x18\x01 \x01(\x05\"\x1e\n\x10\x45lectionResponse\x12\n\n\x02ok\x18\x01 \x01(\x08\"\'\n\x12\x43oordinatorRequest\x12\x11\n\tleader_id\x18\x01 \x01(\x05\"+\n\x13\x43oordinatorResponse\x12\x14\n\x0c\x61\x63knowledged\x18\x01 \x01(\x08\"+\n\x10HeartbeatRequest\x12\x17\n\x0frequesting_node\x18\x01 \x01(\x05\",\n\x11HeartbeatResponse\x12\x17\n\x0fresponding_node\x18\x01 \x01(\x05\x32\x8f\x02\n\x14OrderExecutorService\x12M\n\x08\x45lection\x12\x1f.order_executor.ElectionRequest\x1a .order_executor.ElectionResponse\x12V\n\x0b\x43oordinator\x12\".order_executor.CoordinatorRequest\x1a#.order_executor.CoordinatorResponse\x12P\n\tHeartbeat\x12 .order_executor.HeartbeatRequest\x1a!.order_executor.HeartbeatResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -29,8 +29,10 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_COORDINATORREQUEST']._serialized_end=147
   _globals['_COORDINATORRESPONSE']._serialized_start=149
   _globals['_COORDINATORRESPONSE']._serialized_end=192
-  _globals['_EMPTY']._serialized_start=194
-  _globals['_EMPTY']._serialized_end=201
-  _globals['_ORDEREXECUTORSERVICE']._serialized_start=204
-  _globals['_ORDEREXECUTORSERVICE']._serialized_end=452
+  _globals['_HEARTBEATREQUEST']._serialized_start=194
+  _globals['_HEARTBEATREQUEST']._serialized_end=237
+  _globals['_HEARTBEATRESPONSE']._serialized_start=239
+  _globals['_HEARTBEATRESPONSE']._serialized_end=283
+  _globals['_ORDEREXECUTORSERVICE']._serialized_start=286
+  _globals['_ORDEREXECUTORSERVICE']._serialized_end=557
 # @@protoc_insertion_point(module_scope)
