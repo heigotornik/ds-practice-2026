@@ -1,55 +1,49 @@
-
 import logging
 import sys
 import os
 
 FILE = __file__ if '__file__' in globals() else os.getenv("PYTHONFILE", "")
-suggestion_grpc_path = os.path.abspath(os.path.join(FILE, '../../../utils/pb/suggestion'))
-sys.path.insert(0, suggestion_grpc_path)
-import suggestion_pb2 as suggestion
-import suggestion_pb2_grpc as suggestion_grpc
+fraud_detection_grpc_path = os.path.abspath(os.path.join(FILE, '../../../utils/pb/fraud_detection'))
+sys.path.insert(0, fraud_detection_grpc_path)
+import fraud_detection_pb2 as fraud_detection
+import fraud_detection_pb2_grpc as fraud_detection_grpc
 
 import grpc
 
 logger = logging.getLogger(__name__)
 
-def init_suggestion_data(id, order):
-    with grpc.insecure_channel('suggestions:50053') as channel:
-        logger.info(f"Initializing suggestion for transaction {id}")
+def init_fraud_detection_data(id, order):
+    with grpc.insecure_channel('fraud_detection:50051') as channel:
+        logger.info(f"Initializing fraud detection for transaction {id}")
         # Create a stub object.
-        stub = suggestion_grpc.SuggestionServiceStub(channel)
+        stub = fraud_detection_grpc.FraudDetectionServiceStub(channel)
         # Call the service through the stub object.
         response = stub.InitOrder(
-                suggestion.InitOrderRequest(
+                fraud_detection.InitOrderRequest(
                     id=id,
                     order=map_transaction_to_proto(order)
+
                 ))
     return response.ok
 
-def update_vector_clock(id, vc):
-    with grpc.insecure_channel('suggestions:50053') as channel:
-        logger.info(f"Initializing sending vector clock for order {id} to suggestions")
+def check_fraud(order_id):
+    # Establish a connection with the fraud-detection gRPC service.
+    with grpc.insecure_channel('fraud_detection:50051') as channel:
+        logger.debug("Checking fraud for order id %s", order_id)
         # Create a stub object.
-        stub = suggestion_grpc.SuggestionServiceStub(channel)
+        stub = fraud_detection_grpc.FraudDetectionServiceStub(channel)
         # Call the service through the stub object.
-        response = stub.UpdateStatus(
-                suggestion.StatusUpdateRequest(
-                    id=id,
-                    TransactionServiceA = vc[0],
-                    TransactionServiceB = vc[1],
-                    FraudDetection = vc[2],
-                    Suggestions = vc[3],
-                ))
-    return response.ok
+        response = stub.DetectFraud(fraud_detection.FraudRequest(id=order_id))
+    return response.is_fraud, response.message
 
 def map_transaction_to_proto(transaction: dict):
-    return suggestion.OrderData(
-        user=suggestion.User(
+    return fraud_detection.OrderData(
+        user=fraud_detection.User(
             name=transaction.get("user", {}).get("name", ""),
             contact=transaction.get("user", {}).get("contact", "")
         ),
 
-        creditCard=suggestion.CreditCard(
+        creditCard=fraud_detection.CreditCard(
             number=transaction.get("creditCard", {}).get("number", ""),
             expirationDate=transaction.get("creditCard", {}).get("expirationDate", ""),
             cvv=transaction.get("creditCard", {}).get("cvv", "")
@@ -58,14 +52,14 @@ def map_transaction_to_proto(transaction: dict):
         userComment=transaction.get("userComment", ""),
 
         items=[
-            suggestion.Item(
+            fraud_detection.Item(
                 name=item.get("name", ""),
                 quantity=item.get("quantity", 0)
             )
             for item in transaction.get("items", [])
         ],
 
-        billingAddress=suggestion.Address(
+        billingAddress=fraud_detection.Address(
             street=transaction.get("billingAddress", {}).get("street", ""),
             city=transaction.get("billingAddress", {}).get("city", ""),
             state=transaction.get("billingAddress", {}).get("state", ""),

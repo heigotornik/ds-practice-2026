@@ -6,7 +6,10 @@ import os
 # Change these lines only if strictly needed.
 FILE = __file__ if '__file__' in globals() else os.getenv("PYTHONFILE", "")
 fraud_detection_grpc_path = os.path.abspath(os.path.join(FILE, '../../../utils/pb/fraud_detection'))
+suggestion_api_path = os.path.abspath(os.path.join(FILE, '../../../utils/api'))
 sys.path.insert(0, fraud_detection_grpc_path)
+sys.path.insert(0, suggestion_api_path)
+import suggestion_api as suggestion_api
 import fraud_detection_pb2 as fraud_detection
 import fraud_detection_pb2_grpc as fraud_detection_grpc
 
@@ -54,14 +57,14 @@ logger = logging.getLogger(__name__)
 
 background_executor = futures.ThreadPoolExecutor(max_workers=4)
 class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
-    def __init__(self, svc_idx = 0, total_svcs = 3):
+    def __init__(self, svc_idx = 2, total_svcs = 4):
         self.svc_idx = svc_idx
         self.total_svcs = total_svcs
         self._lock = threading.Lock()
         self.orders = {}
         self.orderIds = []
         self.eventClocks = {
-            (0, 2, 1, 0) : self.DetectFraud
+            (0, 0, 0, 0) : self.DetectFraud
         }
         background_executor.submit(self.checkClocks)
 
@@ -70,7 +73,10 @@ class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
             for i in range(len(self.orderIds)):
                 clock = tuple(self.orders[self.orderIds[i]]["vc"])
                 if clock in self.eventClocks:
-                    background_executor.submit(self.eventClocks[clock], i)
+                    logger.info(f"Clock matches in fraud")
+                    logger.info(f"{clock}")
+                    self.orders[self.orderIds[i]]["vc"][self.svc_idx] += 1
+                    background_executor.submit(self.eventClocks[clock], self.orderIds[i])
 
     def InitOrder(self, request, context):
         logger.info(f"Received InitOrder request for transaction {request.id}")
@@ -83,8 +89,9 @@ class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
             local_vc[i] = max(local_vc[i], incoming_vc[i])
         local_vc[self.svc_idx] += 1
 
-    def DetectFraud(self, orderId, context):
-        logger.debug("Received request %s", orderId)
+
+    def DetectFraud(self, orderId):
+        logger.info("Received request %s", orderId)
 
         if orderId not in self.orders:
             return fraud_detection.VerifyResponse(
@@ -95,14 +102,11 @@ class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
         order = self.orders[orderId]
 
         response = fraud_detection.FraudResponse()
-        if order.creditCard.number == '1234123412341234':
-            response.is_fraud = True
-            response.message = "Order is fraud."
-        else:
-            response.is_fraud = False # this is not fraud
-            response.message = "Order is not a fraud."
 
-        logger.debug("Returning response %s", response)
+        logger.info("Returning response")
+        self.orders[orderId]["vc"][self.svc_idx] += 1
+        logger.info("Sending clock to suggestions")
+        suggestion_api.update_vector_clock(orderId, self.orders[orderId]["vc"])
         return response
 
 def serve():

@@ -14,9 +14,12 @@ suggestion_grpc_path = os.path.abspath(os.path.join(FILE, '../../../utils/pb/sug
 sys.path.insert(0, suggestion_grpc_path)
 import suggestion_pb2 as suggestion
 import suggestion_pb2_grpc as suggestion_grpc
+orchestrator_grpc_path = os.path.abspath(os.path.join(FILE, '../../../utils/pb/orchestrator'))
+sys.path.insert(0, orchestrator_grpc_path)
+import orchestrator_pb2 as orchestrator
+import orchestrator_pb2_grpc as orchestrator_grpc
 
 rpc_executor = futures.ThreadPoolExecutor(max_workers=10)
-background_executor = futures.ThreadPoolExecutor(max_workers=4)
 
 dictConfig({
     'version': 1,
@@ -45,49 +48,49 @@ condition = threading.Condition(lock)
 
 # Create a class to define the server functions, derived from
 # fraud_detection_pb2_grpc.HelloServiceServicer
+background_executor = futures.ThreadPoolExecutor(max_workers=4)
 class SuggestionService(suggestion_grpc.SuggestionServiceServicer):
 
-    def __init__(self):
-        self.bookSuggestion = BookSuggestionProcess()
-        background_executor.submit(self.worker, self.bookSuggestion)
+    def __init__(self, svc_idx = 3, total_svcs = 4):
+        self.svc_idx = svc_idx
+        self.total_svcs = total_svcs
+        self._lock = threading.Lock()
+        self.orders = {}
+        self.orderIds = []
+        self.eventClocks = {
+            (0, 0, 2, 1) : self.suggestBooks
+        }
+        background_executor.submit(self.checkClocks)
 
-    def worker(self, service):
-        cond = service.condition
-
+    def checkClocks(self):
         while True:
-            try:
-                with cond:
-                    cond.wait_for(lambda: len(service.get_events_to_run()) > 0)
-                    events = service.get_events_to_run()
-
-                logger.debug("Worker got %d events for %s", len(events), service.__class__.__name__)
-
-                for event in events:
-                    service.add_task_running(event.id)
-                    background_executor.submit(event.action, event.id)
-            except Exception:
-                logger.exception("Worker crashed for %s", service.__class__.__name__)
-                raise
+            for i in range(len(self.orderIds)):
+                clock = tuple(self.orders[self.orderIds[i]]["vc"])
+                if clock in self.eventClocks:
+                    logger.info(f"Clock matches in suggestion")
+                    self.orders[self.orderIds[i]]["vc"][self.svc_idx] += 1
+                    background_executor.submit(self.eventClocks[clock], self.orderIds[i])
 
     def InitOrder(self, request, context):
         logger.info(f"Received InitOrder request for transaction {request.id}")
-        self.bookSuggestion.initialize_order(request.id, request.order)
+        self.orders[request.id] = {"data": request.order, "vc": [0] * self.total_svcs}
+        self.orderIds.append(request.id)
         return suggestion.InitOrderResponse(ok=True)
+
+    def merge_and_increment(self, local_vc, incoming_vc):
+        for i in range(self.total_svcs):
+            local_vc[i] = max(local_vc[i], incoming_vc[i])
+        local_vc[self.svc_idx] += 1
  
     def UpdateStatus(self, request, context):
         logger.info(
-            "Received UpdateStatus request for transaction %s with vc=%s",
-            request.id,
-            request.vc
+            "Received UpdateStatus request for transaction %s with vc",
+            request.id
         )
 
-        if request.id not in self.bookSuggestion.orders:
-            return suggestion.UpdateStatusResponse(
-                ok=False,
-                message="Order ID not found. Please initialize the order first."
-            )
-
-        incoming_vc = tuple(request.vc)
+        incoming_vc = tuple([request.TransactionServiceA, request.TransactionServiceB, 
+                            request.FraudDetection,
+                            request.Suggestions])
 
         logger.debug(
             "Merging VC for transaction %s into both services: %s",
@@ -95,12 +98,43 @@ class SuggestionService(suggestion_grpc.SuggestionServiceServicer):
             incoming_vc
         )
 
-        self.bookSuggestion.update_with_incoming_vector_clock(request.id, incoming_vc)
+        self.merge_and_increment(self.orders[request.id]["vc"], incoming_vc)
 
-        return suggestion.UpdateStatusResponse(
+        return suggestion.StatusUpdateResponse(
             ok=True,
             message="Status updated successfully"
         )
+
+    def suggestBooks(self, orderId):
+        logger.info(f"Suggesting books for order {orderId}")
+        suggestionList = [
+                orchestrator.Book(
+                    bookId=123,
+                    title="testBook",
+                    author="testAuthor"
+                )
+        ]
+        logger.debug("Returning suggestion list %s", suggestionList)
+        self.notifyOrchestrator(orderId, suggestionList)
+    
+    def notifyOrchestrator(self, orderId, suggestedBooks):
+        with grpc.insecure_channel('orchestrator:50050') as channel:
+            logger.info(f"Notifying orchestrator of suggestions for {orderId}")
+            stub = orchestrator_grpc.CheckoutResultServiceStub(channel)
+
+            request = orchestrator.CheckoutResult(
+                orderId=orderId,
+                success=True,
+                message="SUCCESS",
+                suggestedBooks=suggestedBooks
+            )
+            try:
+                logger.info("notified orchestrator")
+                stub.ReportResult(request)
+
+            except grpc.RpcError:
+                logger.exception("Failed to notify orchestrator")
+
 
 def serve():
     # Create a gRPC server
