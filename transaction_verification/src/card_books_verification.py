@@ -47,7 +47,7 @@ class CardBookVerificationProcess(Subservice):
     def update_vector_clock(self, id):
         with self.condition:
             self.vc[id] = (self.vc[id][0] + 1, self.vc[id][1], self.vc[id][2], self.vc[id][3])
-            logger.debug("Updating vector clock for %s to %s", id, str(self.vc[id]))
+            logger.debug("[%s] Updating vector clock to %s", id, str(self.vc[id]))
             self.condition.notify()
     
     def _send_status_update(self, id):

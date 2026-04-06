@@ -41,12 +41,12 @@ class Subservice:
 
     def _runnable_event_with_cleanup(self, fn, id):
         try:
-            logger.debug("Running event with cleanup for %s", id)
+            logger.debug("[%s] Running event with internal cleanup", id)
             verify_response = fn(id)
-            logger.debug("Event with cleanup for %s FINISHED", id)
+            logger.debug("[%s] Event with cleanup FINISHED", id)
 
             if verify_response is not None and not verify_response.isValid:
-                logger.error("Request is not valid %s", id)
+                logger.error("[%s] Request is not valid", id)
                 # Clean up in case of errors to avoid looping the same event.
                 self.cleanup(id)
                 self._notify_orchestrator_failure(
@@ -55,7 +55,7 @@ class Subservice:
                 )
 
         except Exception as e:
-            logger.error("Task failed for ID %s", id)
+            logger.error("[%s] Task failed", id)
             # Clean up in case of errors to avoid looping the same event.
             self.cleanup(id)
             self._notify_orchestrator_failure(
@@ -66,7 +66,7 @@ class Subservice:
             self.remove_task_running(id)
 
     def _notify_orchestrator_failure(self, order_id, message):
-        logger.info("Notifying orchestrator about failure: %s", message)
+        logger.info("[%s] Notifying orchestrator about failure: %s", order_id, message)
         request = orchestrator.CheckoutResult(
             orderId=order_id,
             success=False,
@@ -76,7 +76,7 @@ class Subservice:
             self.orchestrator_stub.ReportResult(request)
 
         except grpc.RpcError:
-            logger.exception("Failed to notify orchestrator")
+            logger.exception("[%s] Failed to notify orchestrator", order_id)
    
     
     def event_with_cleanup(self, fn):
@@ -86,23 +86,23 @@ class Subservice:
     def add_task_running(self, id):
         with self.condition:
             self.tasks_running.add(id)
-            logger.debug("Added task running for %s", id)
+            logger.debug("[%s] Added running task", id)
             self.condition.notify()
     
     def remove_task_running(self, id):
         with self.condition:
             self.tasks_running.remove(id)
-            logger.debug("Removed task running for %s", id)
+            logger.debug("[%s] Removed running task", id)
             self.condition.notify()
     
     def _create_new_vector_clock_entry(self, id):
         self.vc[id] = (0,0,0,0)
 
     def initialize_order(self, id, order):
-        logger.debug("Received order init with id %s", id)
+        logger.debug("[%s] Received order init", id)
         with self.condition:
-            logger.debug("Initializing order with id %s", id)
-            logger.debug("Events %s", str(self.tasks_running))
+            logger.debug("[%s] Initializing order", id)
+            logger.debug("[%s] Events %s", id, str(self.tasks_running))
             self._create_new_vector_clock_entry(id)
             self.orders[id] = order
             self.condition.notify()
@@ -112,13 +112,13 @@ class Subservice:
     
     def cleanup(self, id):
         with self.lock:
-            logger.debug("Applying cleanup for %s, order id %s", self.__class__.__name__, id)
+            logger.debug("[%s] Applying cleanup in service %s", id, self.__class__.__name__)
             self.orders.pop(id, None)
             self.vc.pop(id, None)
 
     def get_events_to_run(self):
         with self.lock:
-            logger.debug("Getting events to run for %s", self.__class__.__name__)
+            logger.debug("Getting events to run for service %s", self.__class__.__name__)
             events_to_run = []
             for id in list(self.orders):
                 if id in self.tasks_running:
@@ -132,7 +132,6 @@ class Subservice:
     def _get_event(self, id):
         for event_vc, action in self.get_service_events().items():
             if all(self.vc[id][i] >= event_vc[i] for i in range(len(self.vc[id]))):
-                logger.debug("%s", str(self.vc))
                 return action
         return None
     
