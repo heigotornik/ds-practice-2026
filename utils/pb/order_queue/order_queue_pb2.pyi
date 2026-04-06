@@ -19,11 +19,11 @@ class EnqueueResponse(_message.Message):
 class DequeueRequest(_message.Message):
     __slots__ = ("dummy",)
     DUMMY_FIELD_NUMBER: _ClassVar[int]
-    dummy: str
-    def __init__(self, dummy: _Optional[str] = ...) -> None: ...
+    dummy: int
+    def __init__(self, dummy: _Optional[int] = ...) -> None: ...
 
 class DequeueResponse(_message.Message):
     __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]
-    id: str
-    def __init__(self, id: _Optional[str] = ...) -> None: ...
+    id: int
+    def __init__(self, id: _Optional[int] = ...) -> None: ...

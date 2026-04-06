@@ -62,6 +62,8 @@ class OrderQueueService(order_queue_grpc.OrderQueueServiceServicer):
                 result = self.queue.pop()
             except:
                 logger.error("Failed to dequeue order")
+                logger.debug("DEV: returning id 1")
+                result = 1
         return order_queue.DequeueResponse(id=result)
 
 
@@ -69,7 +71,7 @@ def serve():
     # Create a gRPC server
     server = grpc.server(futures.ThreadPoolExecutor())
     # Add HelloService
-    order_queue_grpc.addOrderQueueServiceServicer_to_server(OrderQueueService(), server)
+    order_queue_grpc.add_OrderQueueServiceServicer_to_server(OrderQueueService(), server)
     # Listen on port 50051
     port = "50054"
     server.add_insecure_port("[::]:" + port)

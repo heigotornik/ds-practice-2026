@@ -104,7 +104,7 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
                 self._become_leader()
             else:
                 logger.debug("Got response from higher node during election, waiting for coordinator message")
-                time.sleep(5)
+                time.sleep(10)
             
             with self.lock:
                 if not self.election_in_progress:
@@ -130,6 +130,22 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
                     logger.debug("Failed to notify node %d  about new leader. It might be down.", nid)
                     # node might be down, but this node is the leader anyway
                     continue
+    
+
+    def process_orders(self):
+        logger.debug("Processing orders as leader")
+        with grpc.insecure_channel("queue:50054") as channel:
+            try:
+                order_id = self.queue_stub(channel).Dequeue(order_queue.DequeueRequest(dummy=1))
+
+                if order_id is not None:
+                    logger.info("Processing order %s", order_id)
+                    time.sleep(2)
+                    logger.info("Finished processing order %s", order_id)
+                else:
+                    logger.debug("No orders to process")
+            except grpc.RpcError as e:
+                logger.error("Failed to contact order queue service: %s", e)
 
     def _get_leader_address(self):
         with self.lock:
@@ -152,7 +168,7 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
         while True:
             if self.leader_id == self.executor_id:
                 logger.debug("Node %s is the leader, processing orders", self.leader_id)
-                #self.process_orders()
+                self.process_orders()
             elif self.leader_id is not None:
                 try:
                     self._send_heartbeat()
@@ -163,8 +179,12 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
                 logger.debug("No leader currently elected. Starting election.")
                 self.start_leader_election()
 
-            logger.info("Waiting to check leadership")
-            time.sleep(5)
+            if self.leader_id != self.executor_id:
+                logger.info("Waiting to check leadership")
+                time.sleep(10)
+            else:
+                logger.debug("Currently the leader, dequeuing soon")
+                time.sleep(1)
 
     def Election(self, request, context):
         logger.info("Received election message from node %d", request.node_id)
@@ -177,7 +197,7 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
         return order_executor.ElectionResponse(ok=False)
 
     def Coordinator(self, request, context):
-        logger.info("Node %d is the new leader", request.leader_id)
+        logger.info("Coordinator Message received. Node %d is the new leader", request.leader_id)
         with self.lock:
             self.leader_id = request.leader_id
             self.election_in_progress = False
