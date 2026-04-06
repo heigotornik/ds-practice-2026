@@ -99,11 +99,21 @@ class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
                 message="Order ID not found. Please initialize the order first."
             )
 
-        order = self.orders[orderId]
+        order = self.orders[orderId]["data"]
 
-        response = fraud_detection.FraudResponse()
+        response = None
+        if order.creditCard.number == '1234123412341234':
+            response = fraud_detection.FraudResponse(
+                is_fraud=True,
+                message= "Order is fraud"
+            )
+        else:
+            response = fraud_detection.FraudResponse(
+                is_fraud=False,
+                message= "Order is not fraud"
+            )
 
-        logger.info("Returning response")
+        logger.info("Returning response %s", response)
         self.orders[orderId]["vc"][self.svc_idx] += 1
         logger.info("Sending clock to suggestions")
         suggestion_api.update_vector_clock(orderId, self.orders[orderId]["vc"])
