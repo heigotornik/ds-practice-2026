@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package order_executor;
+
+service OrderExecutorService {
+  rpc Election(ElectionRequest) returns (ElectionResponse);
+  rpc Coordinator(CoordinatorRequest) returns (CoordinatorResponse);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+}
+
+
+message ElectionRequest {
+  int32 node_id = 1;
+}
+
+message ElectionResponse {
+  bool ok = 1;
+}
+
+message CoordinatorRequest {
+  int32 leader_id = 1;
+}
+
+message CoordinatorResponse {
+  bool acknowledged = 1;
+}
+
+message HeartbeatRequest {
+  int32 requesting_node = 1;
+}
+
+message HeartbeatResponse {
+  int32 responding_node = 1;
+}
