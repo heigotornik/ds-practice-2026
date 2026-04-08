@@ -129,6 +129,17 @@ Checks present in the verification service currently include:
 - Credit card verification: checks if the credit card number, CVV and expiration are in a valid format
 - Billing address verification: checks if required billing address values are filled
 
+**Subservices**
+
+The verification services has two subservices:
+
+- user data verfication
+- credit card and books verification
+
+The services have separate vector clocks and event logic.
+
+An overarching worker waits for some condition - either order init or vector clock update to happen - before checking the services, their available events and schedulling them to available threads.
+
 ### API
 
 The verification service contains the following API endpoints:
