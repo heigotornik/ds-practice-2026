@@ -15,6 +15,12 @@ from concurrent import futures
 from logging.config import dictConfig
 import logging
 
+from fraud_detection import UserDataFraudDetectionProcess
+from fraud_detection import CreditCardFraudDetectionProcess
+
+rpc_executor = futures.ThreadPoolExecutor(max_workers=10)
+background_executor = futures.ThreadPoolExecutor(max_workers=4)
+
 dictConfig({
     'version': 1,
     'disable_existing_loggers': False,
@@ -53,34 +59,65 @@ logger = logging.getLogger(__name__)
 
 class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
     def __init__(self):
-        self.orders = {}
+        self.userDataProcess = UserDataFraudDetectionProcess()
+        self.creditCardProcess = CreditCardFraudDetectionProcess()
+        background_executor.submit(self.worker, self.userDataProcess)
+        background_executor.submit(self.worker, self.creditCardProcess)
+
+    def worker(self, service):
+        cond = service.condition
+
+        while True:
+            try:
+                with cond:
+                    cond.wait_for(lambda: len(service.get_events_to_run()) > 0)
+                    events = service.get_events_to_run()
+
+                logger.debug("Worker got %d events for %s", len(events), service.__class__.__name__)
+
+                for event in events:
+                    service.add_task_running(event.id)
+                    background_executor.submit(event.action, event.id)
+            except Exception:
+                logger.exception("Worker crashed for %s", service.__class__.__name__)
+                raise
 
     def InitOrder(self, request, context):
         logger.info(f"Received InitOrder request for transaction {request.id}")
-        self.orders[request.id] = request.order
+        self.userDataProcess.initialize_order(request.id, request.order)
+        self.creditCardProcess.initialize_order(request.id, request.order)
         return fraud_detection.InitOrderResponse(ok=True)
 
-    def DetectFraud(self, request, context):
-        logger.debug("Received request %s", request)
+    def UpdateStatus(self, request, context):
+        logger.info(
+            "Received UpdateStatus request for transaction %s with vc=%s",
+            request.id,
+            request.vc
+        )
 
-        if request.id not in self.orders:
-            return fraud_detection.VerifyResponse(
-                isValid=False,
+        if request.id not in self.userDataProcess.orders and \
+            request.id not in self.creditCardProcess.orders:
+            return fraud_detection.UpdateStatusResponse(
+                ok=False,
                 message="Order ID not found. Please initialize the order first."
             )
 
-        order = self.orders[request.id]
+        incoming_vc = tuple(request.vc)
 
-        response = fraud_detection.FraudResponse()
-        if order.creditCard.number == '1234123412341234':
-            response.is_fraud = True
-            response.message = "Order is fraud."
-        else:
-            response.is_fraud = False # this is not fraud
-            response.message = "Order is not a fraud."
+        logger.debug(
+            "Merging VC for transaction %s into both services: %s",
+            request.id,
+            incoming_vc
+        )
 
-        logger.debug("Returning response %s", response)
-        return response
+        self.userDataProcess.update_with_incoming_vector_clock(request.id, incoming_vc)
+        self.creditCardProcess.update_with_incoming_vector_clock(request.id, incoming_vc)
+
+        return fraud_detection.UpdateStatusResponse(
+            ok=True,
+            message="Status updated successfully"
+        )
+
 
 def serve():
     # Create a gRPC server

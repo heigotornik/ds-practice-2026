@@ -2,9 +2,28 @@ syntax = "proto3";
 
 package fraud_detection;
 
-service FraudDetectionService {
-  rpc DetectFraud (FraudRequest) returns (FraudResponse);
+service FraudDetectionService{
+  rpc UpdateStatus (StatusUpdateRequest) returns (StatusUpdateResponse);
   rpc InitOrder (InitOrderRequest) returns (InitOrderResponse);
+}
+
+
+message InitOrderResponse {
+  bool ok = 1;
+}
+
+message StatusUpdateRequest {
+  string id = 1;
+  int32 TransactionServiceA = 2;
+  int32 TransactionServiceB = 3;
+  int32 FraudDetection = 4;
+  int32 Suggestions = 5;
+}
+
+message StatusUpdateResponse {
+  string id = 1;
+  bool ok = 2;
+  string message = 3;
 }
 
 message OrderData {
@@ -37,11 +56,6 @@ message Item {
   int32 quantity = 2;
 }
 
-message InitOrderRequest {
-  string id = 1;
-  OrderData order = 2;
-}
-
 message Address {
   string street = 1;
   string city = 2;
@@ -50,15 +64,12 @@ message Address {
   string country = 5;
 }
 
-message InitOrderResponse {
-  bool ok = 1;
-}
-
-message FraudRequest {
-  string id = 1;
-}
-
-message FraudResponse {
-  bool is_fraud = 1;
+message VerifyResponse {
+  bool isValid = 1;
   optional string message = 2;
+}
+
+message InitOrderRequest {
+  string id = 1;
+  OrderData order = 2;
 }
