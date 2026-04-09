@@ -110,7 +110,7 @@ class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
         )
 
         self.fraudDetectionProcess.update_with_incoming_vector_clock(request.id, incoming_vc)
-        #self.fraudDetectionProcess.update_vector_clock(request.id)
+        self.fraudDetectionProcess.update_vector_clock(request.id)
 
         return fraud_detection.StatusUpdateResponse(
             ok=True,
