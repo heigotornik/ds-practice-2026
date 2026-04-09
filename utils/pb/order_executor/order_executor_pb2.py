@@ -14,25 +14,29 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14order_executor.proto\x12\x0eorder_executor\"\"\n\x0f\x45lectionRequest\x12\x0f\n\x07node_id\x18\x01 \x01(\x05\"\x1e\n\x10\x45lectionResponse\x12\n\n\x02ok\x18\x01 \x01(\x08\"\'\n\x12\x43oordinatorRequest\x12\x11\n\tleader_id\x18\x01 \x01(\x05\"+\n\x13\x43oordinatorResponse\x12\x14\n\x0c\x61\x63knowledged\x18\x01 \x01(\x08\"+\n\x10HeartbeatRequest\x12\x17\n\x0frequesting_node\x18\x01 \x01(\x05\",\n\x11HeartbeatResponse\x12\x17\n\x0fresponding_node\x18\x01 \x01(\x05\x32\x8f\x02\n\x14OrderExecutorService\x12M\n\x08\x45lection\x12\x1f.order_executor.ElectionRequest\x1a .order_executor.ElectionResponse\x12V\n\x0b\x43oordinator\x12\".order_executor.CoordinatorRequest\x1a#.order_executor.CoordinatorResponse\x12P\n\tHeartbeat\x12 .order_executor.HeartbeatRequest\x1a!.order_executor.HeartbeatResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14order_executor.proto\x12\x0eorder_executor\"\x0f\n\rStatusRequest\"&\n\x0eStatusResponse\x12\x14\n\x0cisProcessing\x18\x01 \x01(\x08\"\"\n\x0f\x45lectionRequest\x12\x0f\n\x07node_id\x18\x01 \x01(\x05\"\x1e\n\x10\x45lectionResponse\x12\n\n\x02ok\x18\x01 \x01(\x08\"\'\n\x12\x43oordinatorRequest\x12\x11\n\tleader_id\x18\x01 \x01(\x05\"+\n\x13\x43oordinatorResponse\x12\x14\n\x0c\x61\x63knowledged\x18\x01 \x01(\x08\"+\n\x10HeartbeatRequest\x12\x17\n\x0frequesting_node\x18\x01 \x01(\x05\",\n\x11HeartbeatResponse\x12\x17\n\x0fresponding_node\x18\x01 \x01(\x05\x32\xd8\x02\n\x14OrderExecutorService\x12M\n\x08\x45lection\x12\x1f.order_executor.ElectionRequest\x1a .order_executor.ElectionResponse\x12V\n\x0b\x43oordinator\x12\".order_executor.CoordinatorRequest\x1a#.order_executor.CoordinatorResponse\x12P\n\tHeartbeat\x12 .order_executor.HeartbeatRequest\x1a!.order_executor.HeartbeatResponse\x12G\n\x06Status\x12\x1d.order_executor.StatusRequest\x1a\x1e.order_executor.StatusResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'order_executor_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
-  _globals['_ELECTIONREQUEST']._serialized_start=40
-  _globals['_ELECTIONREQUEST']._serialized_end=74
-  _globals['_ELECTIONRESPONSE']._serialized_start=76
-  _globals['_ELECTIONRESPONSE']._serialized_end=106
-  _globals['_COORDINATORREQUEST']._serialized_start=108
-  _globals['_COORDINATORREQUEST']._serialized_end=147
-  _globals['_COORDINATORRESPONSE']._serialized_start=149
-  _globals['_COORDINATORRESPONSE']._serialized_end=192
-  _globals['_HEARTBEATREQUEST']._serialized_start=194
-  _globals['_HEARTBEATREQUEST']._serialized_end=237
-  _globals['_HEARTBEATRESPONSE']._serialized_start=239
-  _globals['_HEARTBEATRESPONSE']._serialized_end=283
-  _globals['_ORDEREXECUTORSERVICE']._serialized_start=286
-  _globals['_ORDEREXECUTORSERVICE']._serialized_end=557
+  _globals['_STATUSREQUEST']._serialized_start=40
+  _globals['_STATUSREQUEST']._serialized_end=55
+  _globals['_STATUSRESPONSE']._serialized_start=57
+  _globals['_STATUSRESPONSE']._serialized_end=95
+  _globals['_ELECTIONREQUEST']._serialized_start=97
+  _globals['_ELECTIONREQUEST']._serialized_end=131
+  _globals['_ELECTIONRESPONSE']._serialized_start=133
+  _globals['_ELECTIONRESPONSE']._serialized_end=163
+  _globals['_COORDINATORREQUEST']._serialized_start=165
+  _globals['_COORDINATORREQUEST']._serialized_end=204
+  _globals['_COORDINATORRESPONSE']._serialized_start=206
+  _globals['_COORDINATORRESPONSE']._serialized_end=249
+  _globals['_HEARTBEATREQUEST']._serialized_start=251
+  _globals['_HEARTBEATREQUEST']._serialized_end=294
+  _globals['_HEARTBEATRESPONSE']._serialized_start=296
+  _globals['_HEARTBEATRESPONSE']._serialized_end=340
+  _globals['_ORDEREXECUTORSERVICE']._serialized_start=343
+  _globals['_ORDEREXECUTORSERVICE']._serialized_end=687
 # @@protoc_insertion_point(module_scope)

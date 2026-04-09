@@ -65,6 +65,9 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
         self.lock = threading.RLock()
         self.leader_id = None
         self.election_in_progress = False
+
+        self.processing_lock = threading.RLock()
+        self.processing_order = False
         
     def start_leader_election(self):
         with self.lock:
@@ -140,8 +143,12 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
 
                 if order_id is not None:
                     logger.info("Processing order %s", order_id)
-                    time.sleep(2)
+                    with self.processing_lock:
+                        self.processing_order = True
+                    time.sleep(10)
                     logger.info("Finished processing order %s", order_id)
+                    with self.processing_lock:
+                        self.processing_order = False
                 else:
                     logger.debug("No orders to process")
             except grpc.RpcError as e:
@@ -166,9 +173,24 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
 
     def run(self):
         while True:
+            
             if self.leader_id == self.executor_id:
                 logger.debug("Node %s is the leader, processing orders", self.leader_id)
-                self.process_orders()
+                with self.processing_lock:
+                    if self.processing_order:
+                        logger.debug("Already processing an order, skipping this cycle")
+                        continue
+                    with grpc.insecure_channel("queue:50054") as channel:
+                        stub = order_queue_grpc.OrderQueueServiceStub(channel)
+                        try:
+                            resp = stub.AccessResource(order_queue.AccessRequest(nodeId=self.executor_id))
+                            if resp.ok:
+                                self.process_orders()
+                            else:
+                                logger.warning("Access to order queue denied by resource manager even as leader. Message: %s")
+                        except grpc.RpcError as e:
+                            logger.error("Failed to access order queue service: %s", e)
+                            
             elif self.leader_id is not None:
                 try:
                     self._send_heartbeat()
@@ -204,15 +226,20 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
         return order_executor.CoordinatorResponse(acknowledged=True)
 
     def Heartbeat(self, request, context):
-        logger.debug("Received heartbeat from node %d", request.requesting_node)
+        logger.info("Received heartbeat from node %d", request.requesting_node)
         return order_executor.HeartbeatResponse(responding_node=self.executor_id)
 
+    def Status(self, request, context):
+        logger.info("Received status request")
+        processing = self.processing_order
+        logger.info("Status request: currently isProcessing : %s", processing)
+        return order_executor.StatusResponse(
+            isProcessing=processing)
 
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor())
     all_exec_raw = os.getenv("EXECUTORS")
-    logger.debug("Raw EXECUTORS environment variable: %s", all_exec_raw)
     known_ids = json.loads(all_exec_raw)
     known_ids = [(int(nid), addr) for nid, addr in known_ids]
     logger.debug("Known executors: %s", known_ids)

@@ -14,21 +14,25 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x11order_queue.proto\x12\x0border_queue\"\x1c\n\x0e\x45nqueueRequest\x12\n\n\x02id\x18\x01 \x01(\t\"\x1d\n\x0f\x45nqueueResponse\x12\n\n\x02ok\x18\x01 \x01(\x08\"\x1f\n\x0e\x44\x65queueRequest\x12\r\n\x05\x64ummy\x18\x01 \x01(\t\"\x1d\n\x0f\x44\x65queueResponse\x12\n\n\x02id\x18\x01 \x01(\t2\x9f\x01\n\x11OrderQueueService\x12\x44\n\x07\x45nqueue\x12\x1b.order_queue.EnqueueRequest\x1a\x1c.order_queue.EnqueueResponse\x12\x44\n\x07\x44\x65queue\x12\x1b.order_queue.DequeueRequest\x1a\x1c.order_queue.DequeueResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x11order_queue.proto\x12\x0border_queue\"\x1f\n\rAccessRequest\x12\x0e\n\x06nodeId\x18\x01 \x01(\x05\"\x1c\n\x0e\x41\x63\x63\x65ssResponse\x12\n\n\x02ok\x18\x01 \x01(\x08\"\x1c\n\x0e\x45nqueueRequest\x12\n\n\x02id\x18\x01 \x01(\t\"\x1d\n\x0f\x45nqueueResponse\x12\n\n\x02ok\x18\x01 \x01(\x08\"\x1f\n\x0e\x44\x65queueRequest\x12\r\n\x05\x64ummy\x18\x01 \x01(\t\"\x1d\n\x0f\x44\x65queueResponse\x12\n\n\x02id\x18\x01 \x01(\t2\xea\x01\n\x11OrderQueueService\x12I\n\x0e\x41\x63\x63\x65ssResource\x12\x1a.order_queue.AccessRequest\x1a\x1b.order_queue.AccessResponse\x12\x44\n\x07\x45nqueue\x12\x1b.order_queue.EnqueueRequest\x1a\x1c.order_queue.EnqueueResponse\x12\x44\n\x07\x44\x65queue\x12\x1b.order_queue.DequeueRequest\x1a\x1c.order_queue.DequeueResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'order_queue_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
-  _globals['_ENQUEUEREQUEST']._serialized_start=34
-  _globals['_ENQUEUEREQUEST']._serialized_end=62
-  _globals['_ENQUEUERESPONSE']._serialized_start=64
-  _globals['_ENQUEUERESPONSE']._serialized_end=93
-  _globals['_DEQUEUEREQUEST']._serialized_start=95
-  _globals['_DEQUEUEREQUEST']._serialized_end=126
-  _globals['_DEQUEUERESPONSE']._serialized_start=128
-  _globals['_DEQUEUERESPONSE']._serialized_end=157
-  _globals['_ORDERQUEUESERVICE']._serialized_start=160
-  _globals['_ORDERQUEUESERVICE']._serialized_end=319
+  _globals['_ACCESSREQUEST']._serialized_start=34
+  _globals['_ACCESSREQUEST']._serialized_end=65
+  _globals['_ACCESSRESPONSE']._serialized_start=67
+  _globals['_ACCESSRESPONSE']._serialized_end=95
+  _globals['_ENQUEUEREQUEST']._serialized_start=97
+  _globals['_ENQUEUEREQUEST']._serialized_end=125
+  _globals['_ENQUEUERESPONSE']._serialized_start=127
+  _globals['_ENQUEUERESPONSE']._serialized_end=156
+  _globals['_DEQUEUEREQUEST']._serialized_start=158
+  _globals['_DEQUEUEREQUEST']._serialized_end=189
+  _globals['_DEQUEUERESPONSE']._serialized_start=191
+  _globals['_DEQUEUERESPONSE']._serialized_end=220
+  _globals['_ORDERQUEUESERVICE']._serialized_start=223
+  _globals['_ORDERQUEUESERVICE']._serialized_end=457
 # @@protoc_insertion_point(module_scope)

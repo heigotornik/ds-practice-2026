@@ -4,6 +4,16 @@ from typing import ClassVar as _ClassVar, Optional as _Optional
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class StatusRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class StatusResponse(_message.Message):
+    __slots__ = ("isProcessing",)
+    ISPROCESSING_FIELD_NUMBER: _ClassVar[int]
+    isProcessing: bool
+    def __init__(self, isProcessing: bool = ...) -> None: ...
+
 class ElectionRequest(_message.Message):
     __slots__ = ("node_id",)
     NODE_ID_FIELD_NUMBER: _ClassVar[int]

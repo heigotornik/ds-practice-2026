@@ -3,8 +3,17 @@ syntax = "proto3";
 package order_queue;
 
 service OrderQueueService {
+    rpc AccessResource(AccessRequest) returns (AccessResponse);
     rpc Enqueue (EnqueueRequest) returns (EnqueueResponse);
     rpc Dequeue (DequeueRequest) returns (DequeueResponse);
+}
+
+message AccessRequest {
+  int32 nodeId = 1;
+}
+
+message AccessResponse {
+  bool ok = 1;
 }
 
 message EnqueueRequest{

@@ -14,6 +14,11 @@ class OrderQueueServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.AccessResource = channel.unary_unary(
+                '/order_queue.OrderQueueService/AccessResource',
+                request_serializer=order__queue__pb2.AccessRequest.SerializeToString,
+                response_deserializer=order__queue__pb2.AccessResponse.FromString,
+                )
         self.Enqueue = channel.unary_unary(
                 '/order_queue.OrderQueueService/Enqueue',
                 request_serializer=order__queue__pb2.EnqueueRequest.SerializeToString,
@@ -28,6 +33,12 @@ class OrderQueueServiceStub(object):
 
 class OrderQueueServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def AccessResource(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def Enqueue(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -44,6 +55,11 @@ class OrderQueueServiceServicer(object):
 
 def add_OrderQueueServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'AccessResource': grpc.unary_unary_rpc_method_handler(
+                    servicer.AccessResource,
+                    request_deserializer=order__queue__pb2.AccessRequest.FromString,
+                    response_serializer=order__queue__pb2.AccessResponse.SerializeToString,
+            ),
             'Enqueue': grpc.unary_unary_rpc_method_handler(
                     servicer.Enqueue,
                     request_deserializer=order__queue__pb2.EnqueueRequest.FromString,
@@ -63,6 +79,23 @@ def add_OrderQueueServiceServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class OrderQueueService(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def AccessResource(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/order_queue.OrderQueueService/AccessResource',
+            order__queue__pb2.AccessRequest.SerializeToString,
+            order__queue__pb2.AccessResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
     def Enqueue(request,
