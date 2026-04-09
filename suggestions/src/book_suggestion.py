@@ -43,9 +43,9 @@ logger = logging.getLogger(__name__)
 class BookSuggestionProcess(Subservice):
     def get_service_events(self):
         return {
-            (3,2,5,3): self.event_with_cleanup(self.cleanup),
-            (3,2,5,2): self.event_with_cleanup(self._send_status_update),
-            (3,2,5,1): self.event_with_cleanup(self._create_suggestions),
+            (3,2,3,2): self.event_with_cleanup(self.cleanup),
+            (3,2,3,1): self.event_with_cleanup(self._send_status_update),
+            (3,2,3,0): self.event_with_cleanup(self._create_suggestions),
         }
     
     def update_vector_clock(self, id):

@@ -81,7 +81,7 @@ class SuggestionService(suggestion_grpc.SuggestionServiceServicer):
         )
 
         if request.id not in self.bookSuggestion.orders:
-            return suggestion.UpdateStatusResponse(
+            return suggestion.StatusUpdateResponse(
                 ok=False,
                 message="Order ID not found. Please initialize the order first."
             )
@@ -101,7 +101,7 @@ class SuggestionService(suggestion_grpc.SuggestionServiceServicer):
 
         self.bookSuggestion.update_with_incoming_vector_clock(request.id, incoming_vc)
 
-        return suggestion.UpdateStatusResponse(
+        return suggestion.StatusUpdateResponse(
             ok=True,
             message="Status updated successfully"
         )
