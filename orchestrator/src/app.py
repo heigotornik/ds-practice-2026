@@ -122,7 +122,7 @@ def checkout():
         "done": threading.Event(),
         "responses": 0
     }
-    finished = ORDER_STATE[order_id]["done"].wait(timeout=10)
+    finished = ORDER_STATE[order_id]["done"].wait(timeout=5)
 
     if not finished:
         return {"status":"FAILED"},408

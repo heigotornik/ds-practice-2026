@@ -199,3 +199,4 @@ class Subservice:
                 )
 
                 self.vc[id] = merged
+            self.condition.notify()

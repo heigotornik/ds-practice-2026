@@ -57,6 +57,7 @@ class SuggestionService(suggestion_grpc.SuggestionServiceServicer):
         while True:
             try:
                 with cond:
+                    logger.debug("Worker waiting for events for %s", service.__class__.__name__)
                     cond.wait_for(lambda: len(service.get_events_to_run()) > 0)
                     events = service.get_events_to_run()
 
