@@ -49,7 +49,8 @@ class UserVerificationProcess(Subservice):
             self.condition.notify()
 
     def _send_status_update(self, id):
-        logger.debug("Sending status update to TODO")
+        logger.debug("[%s] Sending status update to FraudDetection service from UserVerification", id)
+        self.send_vc_to_fraud_detection(id)
         self.update_vector_clock(id)
     
     def _verify_user_data_async(self, id):

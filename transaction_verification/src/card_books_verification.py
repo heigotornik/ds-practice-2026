@@ -51,13 +51,11 @@ class CardBookVerificationProcess(Subservice):
             self.condition.notify()
     
     def _send_status_update(self, id):
-        logger.debug("Sending status update to TODO")
+        logger.debug("[%s] Sending status update to FraudDetection service from CardBookVerification", id)
         self.send_vc_to_fraud_detection(id)
         self.update_vector_clock(id)
 
     def _verify_credit_card_async(self, id):
-        logger.debug("Received request id %s", id)
-
         if id not in self.orders:
             return transaction_verification.VerifyResponse(
                 isValid=False,
