@@ -15,8 +15,7 @@ from concurrent import futures
 from logging.config import dictConfig
 import logging
 
-from fraud_detection import UserDataFraudDetectionProcess
-from fraud_detection import CreditCardFraudDetectionProcess
+from fraud_detection import FraudDetectionProcess 
 
 rpc_executor = futures.ThreadPoolExecutor(max_workers=10)
 background_executor = futures.ThreadPoolExecutor(max_workers=4)
@@ -59,10 +58,8 @@ logger = logging.getLogger(__name__)
 
 class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
     def __init__(self):
-        self.userDataProcess = UserDataFraudDetectionProcess()
-        self.creditCardProcess = CreditCardFraudDetectionProcess()
+        self.fraudDetectionProcess = FraudDetectionProcess()
         background_executor.submit(self.worker, self.userDataProcess)
-        background_executor.submit(self.worker, self.creditCardProcess)
 
     def worker(self, service):
         cond = service.condition
@@ -84,8 +81,7 @@ class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
 
     def InitOrder(self, request, context):
         logger.info(f"Received InitOrder request for transaction {request.id}")
-        self.userDataProcess.initialize_order(request.id, request.order)
-        self.creditCardProcess.initialize_order(request.id, request.order)
+        self.fraudDetectionProcess.initialize_order(request.id, request.order)
         return fraud_detection.InitOrderResponse(ok=True)
 
     def UpdateStatus(self, request, context):
@@ -114,8 +110,7 @@ class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
             incoming_vc
         )
 
-        self.userDataProcess.update_with_incoming_vector_clock(request.id, incoming_vc)
-        self.creditCardProcess.update_with_incoming_vector_clock(request.id, incoming_vc)
+        self.fraudDetectionProcess.update_with_incoming_vector_clock(request.id, incoming_vc)
 
         return fraud_detection.StatusUpdateResponse(
             ok=True,

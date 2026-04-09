@@ -40,33 +40,12 @@ dictConfig({
 
 logger = logging.getLogger(__name__)
 
-class UserDataFraudDetectionProcess(Subservice):
+class FraudDetectionProcess(Subservice):
     def get_service_events(self):
         return {
             (0,2,3,0): self.event_with_cleanup(self.cleanup),
             (0,2,2,0): self.event_with_cleanup(self._send_status_update),
             (0,2,1,0): self.event_with_cleanup(self._check_user_data),
-        }
-    
-    def update_vector_clock(self, id):
-        with self.condition:
-            self.vc[id] = (self.vc[id][0], self.vc[id][1], self.vc[id][2], self.vc[id][3]+1)
-            logger.debug("Updating vector clock for %s to %s", id, str(self.vc[id]))
-            self.condition.notify()
-
-    def _send_status_update(self, id):
-        logger.debug("Sending status update to orchestrator")
-
-        self.notify_orchestrator_success(id, self.suggestions[id])
-        self.update_vector_clock(id)
-    
-    def _check_user_data(self, id):
-        pass
-
-
-class CreditCardFraudDetectionProcess(Subservice):
-    def get_service_events(self):
-        return {
             (3,2,5,0): self.event_with_cleanup(self.cleanup),
             (3,2,4,0): self.event_with_cleanup(self._send_status_update),
             (3,2,3,0): self.event_with_cleanup(self._check_credit_card),
@@ -83,7 +62,27 @@ class CreditCardFraudDetectionProcess(Subservice):
 
         self.notify_orchestrator_success(id, self.suggestions[id])
         self.update_vector_clock(id)
+
+        self.send_vc_to_suggestion(id)
     
+    def _check_user_data(self, id):
+        if id not in self.orders:
+            return fraud_detection.VerifyResponse(
+                isValid=False,
+                message="Order ID not found. Please initialize the order first."
+            )
+
+        order = self.orders[id]
+
+        response = fraud_detection.FraudResponse()
+        if order.user.name == 'Fraudster':
+            response.is_fraud = True
+            response.message = "Order is fraud."
+        else:
+            response.is_fraud = False # this is not fraud
+            response.message = "Order is not a fraud."
+        self.update_vector_clock(id)
+
     def _check_credit_card(self, id):
         if id not in self.orders:
             return fraud_detection.VerifyResponse(
@@ -100,4 +99,4 @@ class CreditCardFraudDetectionProcess(Subservice):
         else:
             response.is_fraud = False # this is not fraud
             response.message = "Order is not a fraud."
-
+        self.update_vector_clock(id)
