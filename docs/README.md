@@ -69,6 +69,7 @@ service FraudDetectionService{
   rpc InitOrder (InitOrderRequest) returns (InitOrderResponse);
 }
 ```
+
 **InitOrder**
 This endpoint is used to initialize and cache the order.
 
@@ -219,10 +220,10 @@ The Order contains the following API endpoints:
 ```proto
 
 service OrderQueueService {
+    rpc AccessResource(AccessRequest) returns (AccessResponse);
     rpc Enqueue (EnqueueRequest) returns (EnqueueResponse);
     rpc Dequeue (DequeueRequest) returns (DequeueResponse);
 }
-
 ```
 
 **Enqueue**
@@ -241,8 +242,8 @@ message EnqueueResponse {
 
 **Dequeue**
 
-The endpoint is used to dequeu an order from the queue.
-This endpoint is used queue exectors.
+The endpoint is used to dequeue an order from the queue.
+This endpoint is used queue exectors. Before the queue executor can call this it endpoint it must request resource access via AccessResource.
 
 ```proto
 message DequeueRequest{
@@ -251,6 +252,20 @@ message DequeueRequest{
 
 message DequeueResponse {
   string id = 1;
+}
+```
+
+**AccessResource**
+
+This endpoint is used to request access to the queue. The request should be made before calling Dequeue.
+
+```proto
+message AccessRequest {
+  int32 nodeId = 1;
+}
+
+message AccessResponse {
+  bool ok = 1;
 }
 ```
 
@@ -260,9 +275,19 @@ The Order Executors process orders by dequeuing an order from the order queue.
 
 A Order Executor can process a order only if it is currently elected as a leader.
 
+### Leader election
+
 The Order Executors perform an election if none of the nodes are elected currently as a leader. The election is done via the Bully Algorithm.
 
 ![System diagram](./images/DS-election.svg)
+
+### Mutual exclusion
+
+Mutual exclusion is achieved using the a permission-based, centralized approach.
+
+The leader of the order executors requests access to the Order Queue via AccessResource, before Dequeue.
+
+The order queue itself checks if the resource requester is still using it, if not it forces a release.
 
 ### API
 
@@ -270,38 +295,68 @@ The Queue Executor contains the following API endpoints:
 
 ```proto
 
-service OrderQueueService {
-    rpc Enqueue (EnqueueRequest) returns (EnqueueResponse);
-    rpc Dequeue (DequeueRequest) returns (DequeueResponse);
+service OrderExecutorService {
+  rpc Election(ElectionRequest) returns (ElectionResponse);
+  rpc Coordinator(CoordinatorRequest) returns (CoordinatorResponse);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  rpc Status(StatusRequest) returns (StatusResponse);
 }
 
 ```
 
+**Election**
+
+The election call is made by any order executor to other executors. After the call each node starts the election process internally, sending election requests to higher nodes.
+If a node either has no-one to send to or receives no responses, it assigns itself as the leader and calls Coordinator on other nodes.
+
 ```proto
-
-syntax = "proto3";
-
-package order_queue;
-
-service OrderQueueService {
-    rpc Enqueue (EnqueueRequest) returns (EnqueueResponse);
-    rpc Dequeue (DequeueRequest) returns (DequeueResponse);
+message ElectionRequest {
+  int32 node_id = 1;
 }
 
-message EnqueueRequest{
-  string id = 1;
-}
-
-message EnqueueResponse {
+message ElectionResponse {
   bool ok = 1;
 }
 
-message DequeueRequest{
-  string dummy = 1;
+```
+
+**Coordinator**
+
+The coordinator call is made by an node that assigns itself as the leader.
+
+```proto
+message CoordinatorRequest {
+  int32 leader_id = 1;
 }
 
-message DequeueResponse {
-  string id = 1;
+message CoordinatorResponse {
+  bool acknowledged = 1;
 }
 
+```
+
+**Heartbeat**
+
+This API call is used by executors to check the current leader's status. If a leader should fail, then a failing response from this call will trigger an election.
+
+```proto
+message HeartbeatRequest {
+  int32 requesting_node = 1;
+}
+
+message HeartbeatResponse {
+  int32 responding_node = 1;
+}
+```
+
+**Status**
+
+Status is used by the Order Queue to verify if the Order Executor accessing the resource is still available. If it is either not processing or the node failed the order queue releases the lock.
+
+```proto
+message StatusRequest {}
+
+message StatusResponse {
+  bool isProcessing = 1;
+}
 ```
