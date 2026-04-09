@@ -16,9 +16,9 @@ message EnqueueResponse {
 }
 
 message DequeueRequest{
-  int32 dummy = 1;
+  string dummy = 1;
 }
 
 message DequeueResponse {
-  int32 id = 1;
+  string id = 1;
 }

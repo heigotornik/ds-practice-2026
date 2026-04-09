@@ -31,6 +31,11 @@ sys.path.insert(0, orchestrator_grpc_path)
 import orchestrator_pb2 as orchestrator
 import orchestrator_pb2_grpc as orchestrator_grpc
 
+order_queue_grpc_path = os.path.abspath(os.path.join(FILE, '../../../utils/pb/order_queue'))
+sys.path.insert(0, order_queue_grpc_path)
+import order_queue_pb2 as order_queue
+import order_queue_pb2_grpc as order_queue_grpc
+
 dictConfig({
     'version': 1,
     'formatters': {'default': {
@@ -123,20 +128,40 @@ def checkout():
         return {"status":"FAILED"},408
 
     order = ORDER_STATE[order_id]
-    if order["success"]:
+    if not order["success"]:
         return {
             "orderId":order_id,
-            "status":"Order Approved",
-            'suggestedBooks': [
-                {'bookId': order["suggested_books"][0].bookId, 'title': order["suggested_books"][0].title, 'author': order["suggested_books"][0].author},
-            ]
+            "status":"FAILED",
+            "message":order["message"],
+            'suggestedBooks': []
         }
+
+    send_order_to_queue(order_id)
+    
     return {
         "orderId":order_id,
-        "status":"FAILED",
-        "message":order["message"],
-        'suggestedBooks': []
+        "status":"Order Approved",
+        'suggestedBooks': [
+            {'bookId': order["suggested_books"][0].bookId, 'title': order["suggested_books"][0].title, 'author': order["suggested_books"][0].author},
+        ]
     }
+
+def send_order_to_queue(order_id):
+    try:
+        with grpc.insecure_channel("queue:50054") as channel:
+            stub = order_queue_grpc.OrderQueueServiceStub(channel)
+
+            response = stub.Enqueue(
+                order_queue.EnqueueRequest(id=order_id)
+            )
+
+            if response.ok:
+                app.logger.info("Order %s enqueued successfully", order_id)
+            else:
+                app.logger.error("Failed to enqueue order %s", order_id)
+
+    except grpc.RpcError as e:
+        app.logger.error("Queue service unreachable: %s", e)
 
 def start_grpc():
     server = grpc.server(

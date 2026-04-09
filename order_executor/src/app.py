@@ -136,7 +136,7 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
         logger.debug("Processing orders as leader")
         with grpc.insecure_channel("queue:50054") as channel:
             try:
-                order_id = self.queue_stub(channel).Dequeue(order_queue.DequeueRequest(dummy=1))
+                order_id = self.queue_stub(channel).Dequeue(order_queue.DequeueRequest(dummy=str(1)))
 
                 if order_id is not None:
                     logger.info("Processing order %s", order_id)

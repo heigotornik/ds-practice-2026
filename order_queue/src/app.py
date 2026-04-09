@@ -64,7 +64,7 @@ class OrderQueueService(order_queue_grpc.OrderQueueServiceServicer):
                 logger.error("Failed to dequeue order")
                 logger.debug("DEV: returning id 1")
                 result = 1
-        return order_queue.DequeueResponse(id=result)
+        return order_queue.DequeueResponse(id=str(result))
 
 
 def serve():
