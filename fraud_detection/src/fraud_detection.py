@@ -43,10 +43,10 @@ logger = logging.getLogger(__name__)
 class FraudDetectionProcess(Subservice):
     def get_service_events(self):
         return {
-            (3,2,5,0): self.event_with_cleanup(self.cleanup),
-            (3,2,4,0): self.event_with_cleanup(self._send_status_update),
-            (3,2,3,0): self.event_with_cleanup(self._check_credit_card),
-            (2,0,1,0): self.event_with_cleanup(self._check_user_data),
+            (3,2,3,0): self.event_with_cleanup(self.cleanup),
+            (3,2,2,0): self.event_with_cleanup(self._send_status_update),
+            (3,2,1,0): self.event_with_cleanup(self._check_credit_card),
+            (2,0,0,0): self.event_with_cleanup(self._check_user_data),
         }
     
     def update_vector_clock(self, id):
@@ -58,10 +58,9 @@ class FraudDetectionProcess(Subservice):
     def _send_status_update(self, id):
         logger.debug("Sending status update to orchestrator")
 
-        self.notify_orchestrator_success(id, self.suggestions[id])
 
-        self.send_vc_to_suggestion(id)
         self.update_vector_clock(id)
+        self.send_vc_to_suggestion(id)
     
     def _check_user_data(self, id):
         if id not in self.orders:

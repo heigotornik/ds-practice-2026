@@ -52,8 +52,8 @@ class CardBookVerificationProcess(Subservice):
     
     def _send_status_update(self, id):
         logger.debug("[%s] Sending status update to FraudDetection service from CardBookVerification", id)
-        self.send_vc_to_fraud_detection(id)
         self.update_vector_clock(id)
+        self.send_vc_to_fraud_detection(id)
 
     def _verify_credit_card_async(self, id):
         if id not in self.orders:

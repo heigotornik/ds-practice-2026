@@ -114,20 +114,6 @@ class Subservice:
         except grpc.RpcError:
             logger.exception("Failed to notify orchestrator")
    
-    def notify_orchestrator_success(self, order_id, suggested_books):
-        logger.info("Notifying orchestrator about success.")
-        request = orchestrator.CheckoutResult(
-            orderId=order_id,
-            success=True,
-            message="SUCCESS",
-            suggestedBooks=suggested_books
-        )
-        try:
-            self.orchestrator_stub.ReportResult(request)
-
-        except grpc.RpcError:
-            logger.exception("Failed to notify orchestrator")
-    
     def event_with_cleanup(self, fn):
         return lambda ident: self._runnable_event_with_cleanup(fn, ident)
 
@@ -181,7 +167,7 @@ class Subservice:
 
     def _get_event(self, id):
         for event_vc, action in self.get_service_events().items():
-            if all(self.vc[id][i] == event_vc[i] for i in range(len(self.vc[id]))):
+            if all(self.vc[id][i] >= event_vc[i] for i in range(len(self.vc[id]))):
                 logger.debug("%s", str(self.vc))
                 return action
         return None

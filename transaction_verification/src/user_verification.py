@@ -50,8 +50,8 @@ class UserVerificationProcess(Subservice):
 
     def _send_status_update(self, id):
         logger.debug("[%s] Sending status update to FraudDetection service from UserVerification", id)
-        self.send_vc_to_fraud_detection(id)
         self.update_vector_clock(id)
+        self.send_vc_to_fraud_detection(id)
     
     def _verify_user_data_async(self, id):
 

@@ -76,9 +76,8 @@ class SuggestionService(suggestion_grpc.SuggestionServiceServicer):
  
     def UpdateStatus(self, request, context):
         logger.info(
-            "Received UpdateStatus request for transaction %s with vc=%s",
+            "Received UpdateStatus request for transaction %s",
             request.id,
-            request.vc
         )
 
         if request.id not in self.bookSuggestion.orders:
@@ -87,7 +86,12 @@ class SuggestionService(suggestion_grpc.SuggestionServiceServicer):
                 message="Order ID not found. Please initialize the order first."
             )
 
-        incoming_vc = tuple(request.vc)
+        incoming_vc = tuple([
+            request.TransactionServiceA,
+            request.TransactionServiceB,
+            request.FraudDetection,
+            request.Suggestions
+        ])
 
         logger.debug(
             "Merging VC for transaction %s into both services: %s",
