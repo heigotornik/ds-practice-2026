@@ -14,10 +14,10 @@ class FraudDetectionServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.DetectFraud = channel.unary_unary(
-                '/fraud_detection.FraudDetectionService/DetectFraud',
-                request_serializer=fraud__detection__pb2.FraudRequest.SerializeToString,
-                response_deserializer=fraud__detection__pb2.FraudResponse.FromString,
+        self.UpdateStatus = channel.unary_unary(
+                '/fraud_detection.FraudDetectionService/UpdateStatus',
+                request_serializer=fraud__detection__pb2.StatusUpdateRequest.SerializeToString,
+                response_deserializer=fraud__detection__pb2.StatusUpdateResponse.FromString,
                 )
         self.InitOrder = channel.unary_unary(
                 '/fraud_detection.FraudDetectionService/InitOrder',
@@ -29,7 +29,7 @@ class FraudDetectionServiceStub(object):
 class FraudDetectionServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def DetectFraud(self, request, context):
+    def UpdateStatus(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -44,10 +44,10 @@ class FraudDetectionServiceServicer(object):
 
 def add_FraudDetectionServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'DetectFraud': grpc.unary_unary_rpc_method_handler(
-                    servicer.DetectFraud,
-                    request_deserializer=fraud__detection__pb2.FraudRequest.FromString,
-                    response_serializer=fraud__detection__pb2.FraudResponse.SerializeToString,
+            'UpdateStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateStatus,
+                    request_deserializer=fraud__detection__pb2.StatusUpdateRequest.FromString,
+                    response_serializer=fraud__detection__pb2.StatusUpdateResponse.SerializeToString,
             ),
             'InitOrder': grpc.unary_unary_rpc_method_handler(
                     servicer.InitOrder,
@@ -65,7 +65,7 @@ class FraudDetectionService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def DetectFraud(request,
+    def UpdateStatus(request,
             target,
             options=(),
             channel_credentials=None,
@@ -75,9 +75,9 @@ class FraudDetectionService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/fraud_detection.FraudDetectionService/DetectFraud',
-            fraud__detection__pb2.FraudRequest.SerializeToString,
-            fraud__detection__pb2.FraudResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/fraud_detection.FraudDetectionService/UpdateStatus',
+            fraud__detection__pb2.StatusUpdateRequest.SerializeToString,
+            fraud__detection__pb2.StatusUpdateResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

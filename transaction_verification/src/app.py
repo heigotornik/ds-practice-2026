@@ -94,37 +94,6 @@ class VerificationService(transaction_verification_grpc.VerificationServiceServi
         self.userVerification.initialize_order(request.id, request.order)
         return transaction_verification.InitOrderResponse(ok=True)
     
-    def UpdateStatus(self, request, context):
-        logger.info(
-            "Received UpdateStatus request for transaction %s with vc=%s",
-            request.id,
-            request.vc
-        )
-
-        if request.id not in self.userVerification.orders and \
-        request.id not in self.cardBookVerification.orders:
-            return transaction_verification.UpdateStatusResponse(
-                ok=False,
-                message="Order ID not found. Please initialize the order first."
-            )
-
-        incoming_vc = tuple(request.vc)
-
-        logger.debug(
-            "Merging VC for transaction %s into both services: %s",
-            request.id,
-            incoming_vc
-        )
-
-        self.userVerification.update_with_incoming_vector_clock(request.id, incoming_vc)
-        self.cardBookVerification.update_with_incoming_vector_clock(request.id, incoming_vc)
-
-        return transaction_verification.UpdateStatusResponse(
-            ok=True,
-            message="Status updated successfully"
-        )
-
-
 
 def serve():
     # Create a gRPC server

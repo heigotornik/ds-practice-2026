@@ -5,6 +5,36 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class InitOrderResponse(_message.Message):
+    __slots__ = ("ok",)
+    OK_FIELD_NUMBER: _ClassVar[int]
+    ok: bool
+    def __init__(self, ok: bool = ...) -> None: ...
+
+class StatusUpdateRequest(_message.Message):
+    __slots__ = ("id", "TransactionServiceA", "TransactionServiceB", "FraudDetection", "Suggestions")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    TRANSACTIONSERVICEA_FIELD_NUMBER: _ClassVar[int]
+    TRANSACTIONSERVICEB_FIELD_NUMBER: _ClassVar[int]
+    FRAUDDETECTION_FIELD_NUMBER: _ClassVar[int]
+    SUGGESTIONS_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    TransactionServiceA: int
+    TransactionServiceB: int
+    FraudDetection: int
+    Suggestions: int
+    def __init__(self, id: _Optional[str] = ..., TransactionServiceA: _Optional[int] = ..., TransactionServiceB: _Optional[int] = ..., FraudDetection: _Optional[int] = ..., Suggestions: _Optional[int] = ...) -> None: ...
+
+class StatusUpdateResponse(_message.Message):
+    __slots__ = ("id", "ok", "message")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    OK_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    ok: bool
+    message: str
+    def __init__(self, id: _Optional[str] = ..., ok: bool = ..., message: _Optional[str] = ...) -> None: ...
+
 class OrderData(_message.Message):
     __slots__ = ("user", "creditCard", "userComment", "items", "billingAddress", "shippingMethod", "giftWrapping", "termsAccepted")
     USER_FIELD_NUMBER: _ClassVar[int]
@@ -51,14 +81,6 @@ class Item(_message.Message):
     quantity: int
     def __init__(self, name: _Optional[str] = ..., quantity: _Optional[int] = ...) -> None: ...
 
-class InitOrderRequest(_message.Message):
-    __slots__ = ("id", "order")
-    ID_FIELD_NUMBER: _ClassVar[int]
-    ORDER_FIELD_NUMBER: _ClassVar[int]
-    id: str
-    order: OrderData
-    def __init__(self, id: _Optional[str] = ..., order: _Optional[_Union[OrderData, _Mapping]] = ...) -> None: ...
-
 class Address(_message.Message):
     __slots__ = ("street", "city", "state", "zip", "country")
     STREET_FIELD_NUMBER: _ClassVar[int]
@@ -73,22 +95,18 @@ class Address(_message.Message):
     country: str
     def __init__(self, street: _Optional[str] = ..., city: _Optional[str] = ..., state: _Optional[str] = ..., zip: _Optional[str] = ..., country: _Optional[str] = ...) -> None: ...
 
-class InitOrderResponse(_message.Message):
-    __slots__ = ("ok",)
-    OK_FIELD_NUMBER: _ClassVar[int]
-    ok: bool
-    def __init__(self, ok: bool = ...) -> None: ...
-
-class FraudRequest(_message.Message):
-    __slots__ = ("id",)
-    ID_FIELD_NUMBER: _ClassVar[int]
-    id: str
-    def __init__(self, id: _Optional[str] = ...) -> None: ...
-
-class FraudResponse(_message.Message):
-    __slots__ = ("is_fraud", "message")
-    IS_FRAUD_FIELD_NUMBER: _ClassVar[int]
+class VerifyResponse(_message.Message):
+    __slots__ = ("isValid", "message")
+    ISVALID_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
-    is_fraud: bool
+    isValid: bool
     message: str
-    def __init__(self, is_fraud: bool = ..., message: _Optional[str] = ...) -> None: ...
+    def __init__(self, isValid: bool = ..., message: _Optional[str] = ...) -> None: ...
+
+class InitOrderRequest(_message.Message):
+    __slots__ = ("id", "order")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    ORDER_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    order: OrderData
+    def __init__(self, id: _Optional[str] = ..., order: _Optional[_Union[OrderData, _Mapping]] = ...) -> None: ...

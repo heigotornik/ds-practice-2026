@@ -52,6 +52,7 @@ class CardBookVerificationProcess(Subservice):
     
     def _send_status_update(self, id):
         logger.debug("Sending status update to TODO")
+        self.send_vc_to_fraud_detection(id)
         self.update_vector_clock(id)
 
     def _verify_credit_card_async(self, id):
@@ -64,8 +65,8 @@ class CardBookVerificationProcess(Subservice):
             )
         
         order = self.orders[id]
-        logger.debug("Order data for transaction %s exists", id)
-        logger.debug("Running credit card verification")
+        logger.debug("[%s] Order data exists", id)
+        logger.debug("[%s] Running credit card verification")
         # ---- Credit card verification ----
         cc = order.creditCard
         cc_number = re.sub(r"[\s-]", "", cc.number)

@@ -90,19 +90,23 @@ class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
 
     def UpdateStatus(self, request, context):
         logger.info(
-            "Received UpdateStatus request for transaction %s with vc=%s",
+            "Received UpdateStatus request for transaction %s",
             request.id,
-            request.vc
         )
 
         if request.id not in self.userDataProcess.orders and \
             request.id not in self.creditCardProcess.orders:
-            return fraud_detection.UpdateStatusResponse(
+            return fraud_detection.StatusUpdateResponse(
                 ok=False,
                 message="Order ID not found. Please initialize the order first."
             )
 
-        incoming_vc = tuple(request.vc)
+        incoming_vc = tuple([
+            request.TransactionServiceA,
+            request.TransactionServiceB,
+            request.FraudDetection,
+            request.Suggestions
+        ])
 
         logger.debug(
             "Merging VC for transaction %s into both services: %s",
@@ -113,7 +117,7 @@ class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
         self.userDataProcess.update_with_incoming_vector_clock(request.id, incoming_vc)
         self.creditCardProcess.update_with_incoming_vector_clock(request.id, incoming_vc)
 
-        return fraud_detection.UpdateStatusResponse(
+        return fraud_detection.StatusUpdateResponse(
             ok=True,
             message="Status updated successfully"
         )

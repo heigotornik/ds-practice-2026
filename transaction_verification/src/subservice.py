@@ -5,12 +5,23 @@ import os
 import sys
 import grpc
 
+
 FILE = __file__ if '__file__' in globals() else os.getenv("PYTHONFILE", "")
-orchestrator_grpc_path = os.path.abspath(os.path.join(FILE, '../../../utils/pb/orchestrator'))
-sys.path.insert(0, orchestrator_grpc_path)
-from interceptors import LoggingInterceptor
+def add_proto_path(relative_path: str):
+    abs_path = os.path.abspath(os.path.join(FILE, relative_path))
+    if abs_path not in sys.path:
+        sys.path.insert(0, abs_path)
+
+add_proto_path('../../../utils/pb/orchestrator')
+add_proto_path('../../../utils/pb/fraud_detection')
+
+
 import orchestrator_pb2 as orchestrator
 import orchestrator_pb2_grpc as orchestrator_grpc
+
+import fraud_detection_pb2 as fraud_detection
+import fraud_detection_pb2_grpc as fraud_detection_grpc
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +47,30 @@ class Subservice:
         channel = grpc.insecure_channel("orchestrator:50050")
         self.orchestrator_stub = orchestrator_grpc.CheckoutResultServiceStub(channel)
         
+
     def get_service_events(self):
         raise NotImplementedError("service events are not implemented")
+    
+    def send_vc_to_fraud_detection(self, id):
+        with self.lock:
+            with grpc.insecure_channel("fraud_detection:50051") as channel:
+                stub = fraud_detection_grpc.FraudDetectionServiceStub(channel)
+                request = fraud_detection.StatusUpdateRequest(
+                    id=id,
+                    TransactionServiceA=self.vc[id][0],
+                    TransactionServiceB=self.vc[id][1],
+                    FraudDetection=self.vc[id][2],
+                    Suggestions=self.vc[id][3]
+                )
+                try:
+                    resp = stub.UpdateStatus(request)
+                    logger.debug("[%s] Sent VC update to fraud detection", id)
+                    if not resp.ok:
+                        logger.exception("[%s] Failed to send VC update to fraud detection", id)
+                        self._notify_orchestrator_failure(id, resp.message)
+                except grpc.RpcError as e:
+                    logger.exception("[%s] Failed to send VC update to fraud detection", id)
+                    self._notify_orchestrator_failure(id, str(e))
 
     def _runnable_event_with_cleanup(self, fn, id):
         try:
