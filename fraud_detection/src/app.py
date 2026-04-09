@@ -90,8 +90,7 @@ class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
             request.id,
         )
 
-        if request.id not in self.userDataProcess.orders and \
-            request.id not in self.creditCardProcess.orders:
+        if request.id not in self.fraudDetectionProcess.orders:
             return fraud_detection.StatusUpdateResponse(
                 ok=False,
                 message="Order ID not found. Please initialize the order first."
