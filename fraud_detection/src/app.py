@@ -59,7 +59,7 @@ logger = logging.getLogger(__name__)
 class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
     def __init__(self):
         self.fraudDetectionProcess = FraudDetectionProcess()
-        background_executor.submit(self.worker, self.userDataProcess)
+        background_executor.submit(self.worker, self.fraudDetectionProcess)
 
     def worker(self, service):
         cond = service.condition
@@ -110,6 +110,7 @@ class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
         )
 
         self.fraudDetectionProcess.update_with_incoming_vector_clock(request.id, incoming_vc)
+        self.fraudDetectionProcess.update_vector_clock(request.id)
 
         return fraud_detection.StatusUpdateResponse(
             ok=True,
@@ -119,7 +120,7 @@ class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
 
 def serve():
     # Create a gRPC server
-    server = grpc.server(futures.ThreadPoolExecutor())
+    server = grpc.server(rpc_executor)
     # Add HelloService
     fraud_detection_grpc.add_FraudDetectionServiceServicer_to_server(FraudDetectionService(), server)
     # Listen on port 50051

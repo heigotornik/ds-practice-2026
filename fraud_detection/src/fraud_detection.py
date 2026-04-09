@@ -43,17 +43,15 @@ logger = logging.getLogger(__name__)
 class FraudDetectionProcess(Subservice):
     def get_service_events(self):
         return {
-            (0,2,3,0): self.event_with_cleanup(self.cleanup),
-            (0,2,2,0): self.event_with_cleanup(self._send_status_update),
-            (0,2,1,0): self.event_with_cleanup(self._check_user_data),
             (3,2,5,0): self.event_with_cleanup(self.cleanup),
             (3,2,4,0): self.event_with_cleanup(self._send_status_update),
             (3,2,3,0): self.event_with_cleanup(self._check_credit_card),
+            (2,0,1,0): self.event_with_cleanup(self._check_user_data),
         }
     
     def update_vector_clock(self, id):
         with self.condition:
-            self.vc[id] = (self.vc[id][0], self.vc[id][1], self.vc[id][2], self.vc[id][3]+1)
+            self.vc[id] = (self.vc[id][0], self.vc[id][1], self.vc[id][2]+1, self.vc[id][3])
             logger.debug("Updating vector clock for %s to %s", id, str(self.vc[id]))
             self.condition.notify()
 
@@ -61,9 +59,9 @@ class FraudDetectionProcess(Subservice):
         logger.debug("Sending status update to orchestrator")
 
         self.notify_orchestrator_success(id, self.suggestions[id])
-        self.update_vector_clock(id)
 
         self.send_vc_to_suggestion(id)
+        self.update_vector_clock(id)
     
     def _check_user_data(self, id):
         if id not in self.orders:
@@ -74,13 +72,11 @@ class FraudDetectionProcess(Subservice):
 
         order = self.orders[id]
 
-        response = fraud_detection.FraudResponse()
         if order.user.name == 'Fraudster':
-            response.is_fraud = True
-            response.message = "Order is fraud."
-        else:
-            response.is_fraud = False # this is not fraud
-            response.message = "Order is not a fraud."
+            return fraud_detection.VerifyResponse(
+                isValid=False,
+                message="Order ID not found. Please initialize the order first."
+            )
         self.update_vector_clock(id)
 
     def _check_credit_card(self, id):
@@ -92,11 +88,9 @@ class FraudDetectionProcess(Subservice):
 
         order = self.orders[id]
 
-        response = fraud_detection.FraudResponse()
         if order.creditCard.number == '1234123412341234':
-            response.is_fraud = True
-            response.message = "Order is fraud."
-        else:
-            response.is_fraud = False # this is not fraud
-            response.message = "Order is not a fraud."
+            return fraud_detection.VerifyResponse(
+                isValid=False,
+                message="Order ID not found. Please initialize the order first."
+            )
         self.update_vector_clock(id)

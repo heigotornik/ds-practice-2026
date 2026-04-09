@@ -13,6 +13,7 @@ def add_proto_path(relative_path: str):
         sys.path.insert(0, abs_path)
 
 add_proto_path('../../../utils/pb/suggestion')
+add_proto_path('../../../utils/pb/orchestrator')
 add_proto_path('../../../utils/pb/fraud_detection')
 
 
@@ -180,7 +181,7 @@ class Subservice:
 
     def _get_event(self, id):
         for event_vc, action in self.get_service_events().items():
-            if all(self.vc[id][i] >= event_vc[i] for i in range(len(self.vc[id]))):
+            if all(self.vc[id][i] == event_vc[i] for i in range(len(self.vc[id]))):
                 logger.debug("%s", str(self.vc))
                 return action
         return None
