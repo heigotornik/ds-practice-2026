@@ -3,27 +3,12 @@ syntax = "proto3";
 package verification;
 
 service VerificationService {
-  rpc UpdateStatus (StatusUpdateRequest) returns (StatusUpdateResponse);
   rpc InitOrder (InitOrderRequest) returns (InitOrderResponse);
 }
 
 
 message InitOrderResponse {
   bool ok = 1;
-}
-
-message StatusUpdateRequest {
-  string id = 1;
-  int32 TransactionServiceA = 2;
-  int32 TransactionServiceB = 3;
-  int32 FraudDetection = 4;
-  int32 Suggestions = 5;
-}
-
-message StatusUpdateResponse {
-  string id = 1;
-  bool ok = 2;
-  string message = 3;
 }
 
 message OrderData {
@@ -62,11 +47,6 @@ message Address {
   string state = 3;
   string zip = 4;
   string country = 5;
-}
-
-message VerifyResponse {
-  bool isValid = 1;
-  optional string message = 2;
 }
 
 message InitOrderRequest {

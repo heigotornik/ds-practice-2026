@@ -147,19 +147,22 @@ The verification service contains the following API endpoints:
 ```proto
 
 service VerificationService {
-  rpc Verify (Transaction) returns (VerifyResponse);
+  rpc InitOrder (InitOrderRequest) returns (InitOrderResponse);
 }
 
 ```
 
-**verify**
+**InitOrder**
 
-The request body is equivalent to the checkout object received from the frontend.
-
-The gRPC struct to use is `Transaction`.
+This endpoint is used to initialize and cache the order.
 
 ```proto
-message Transaction {
+message InitOrderRequest {
+  string id = 1;
+  OrderData order = 2;
+}
+
+message OrderData {
   User user = 1;
   CreditCard creditCard = 2;
   string userComment = 3;
@@ -201,8 +204,110 @@ message Address {
 The response returned is
 
 ```proto
-message VerifyResponse {
-  bool isValid = 1;
-  optional string message = 2;
+message InitOrderResponse {
+  bool ok = 1;
 }
+
+```
+
+## Order Queue
+
+The Order Queue service maintains a queue of processesed orders.
+
+Orders are added via the orchestrator service after verification, fraud detection and suggestions have been finalized.
+
+Each order is further processed by a queue executor which is the active leader at that specific time.
+
+### API
+
+The Order contains the following API endpoints:
+
+```proto
+
+service OrderQueueService {
+    rpc Enqueue (EnqueueRequest) returns (EnqueueResponse);
+    rpc Dequeue (DequeueRequest) returns (DequeueResponse);
+}
+
+```
+
+**Enqueue**
+
+The endpoint is used to add an order to the queue. The endpoint call is made by the orchestrator.
+
+```proto
+message EnqueueRequest{
+  string id = 1;
+}
+
+message EnqueueResponse {
+  bool ok = 1;
+}
+```
+
+**Dequeue**
+
+The endpoint is used to dequeu an order from the queue.
+This endpoint is used queue exectors.
+
+```proto
+message DequeueRequest{
+  string dummy = 1;
+}
+
+message DequeueResponse {
+  string id = 1;
+}
+```
+
+## Order Executor
+
+The Order Executors process orders by dequeuing an order from the order queue.
+
+A Order Executor can process a order only if it is currently elected as a leader.
+
+The Order Executors perform an election if none of the nodes are elected currently as a leader. The election is done via the Bully Algorithm.
+
+![System diagram](./images/DS-election.svg)
+
+### API
+
+The Queue Executor contains the following API endpoints:
+
+```proto
+
+service OrderQueueService {
+    rpc Enqueue (EnqueueRequest) returns (EnqueueResponse);
+    rpc Dequeue (DequeueRequest) returns (DequeueResponse);
+}
+
+```
+
+```proto
+
+syntax = "proto3";
+
+package order_queue;
+
+service OrderQueueService {
+    rpc Enqueue (EnqueueRequest) returns (EnqueueResponse);
+    rpc Dequeue (DequeueRequest) returns (DequeueResponse);
+}
+
+message EnqueueRequest{
+  string id = 1;
+}
+
+message EnqueueResponse {
+  bool ok = 1;
+}
+
+message DequeueRequest{
+  string dummy = 1;
+}
+
+message DequeueResponse {
+  string id = 1;
+}
+
 ```

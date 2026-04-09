@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1etransaction_verification.proto\x12\x0cverification\"\x1f\n\x11InitOrderResponse\x12\n\n\x02ok\x18\x01 \x01(\x08\"\x88\x01\n\x13StatusUpdateRequest\x12\n\n\x02id\x18\x01 \x01(\t\x12\x1b\n\x13TransactionServiceA\x18\x02 \x01(\x05\x12\x1b\n\x13TransactionServiceB\x18\x03 \x01(\x05\x12\x16\n\x0e\x46raudDetection\x18\x04 \x01(\x05\x12\x13\n\x0bSuggestions\x18\x05 \x01(\x05\"?\n\x14StatusUpdateResponse\x12\n\n\x02id\x18\x01 \x01(\t\x12\n\n\x02ok\x18\x02 \x01(\x08\x12\x0f\n\x07message\x18\x03 \x01(\t\"\x87\x02\n\tOrderData\x12 \n\x04user\x18\x01 \x01(\x0b\x32\x12.verification.User\x12,\n\ncreditCard\x18\x02 \x01(\x0b\x32\x18.verification.CreditCard\x12\x13\n\x0buserComment\x18\x03 \x01(\t\x12!\n\x05items\x18\x04 \x03(\x0b\x32\x12.verification.Item\x12-\n\x0e\x62illingAddress\x18\x05 \x01(\x0b\x32\x15.verification.Address\x12\x16\n\x0eshippingMethod\x18\x06 \x01(\t\x12\x14\n\x0cgiftWrapping\x18\x07 \x01(\x08\x12\x15\n\rtermsAccepted\x18\x08 \x01(\x08\"%\n\x04User\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontact\x18\x02 \x01(\t\"A\n\nCreditCard\x12\x0e\n\x06number\x18\x01 \x01(\t\x12\x16\n\x0e\x65xpirationDate\x18\x02 \x01(\t\x12\x0b\n\x03\x63vv\x18\x03 \x01(\t\"&\n\x04Item\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x10\n\x08quantity\x18\x02 \x01(\x05\"T\n\x07\x41\x64\x64ress\x12\x0e\n\x06street\x18\x01 \x01(\t\x12\x0c\n\x04\x63ity\x18\x02 \x01(\t\x12\r\n\x05state\x18\x03 \x01(\t\x12\x0b\n\x03zip\x18\x04 \x01(\t\x12\x0f\n\x07\x63ountry\x18\x05 \x01(\t\"C\n\x0eVerifyResponse\x12\x0f\n\x07isValid\x18\x01 \x01(\x08\x12\x14\n\x07message\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\n\n\x08_message\"F\n\x10InitOrderRequest\x12\n\n\x02id\x18\x01 \x01(\t\x12&\n\x05order\x18\x02 \x01(\x0b\x32\x17.verification.OrderData2\xba\x01\n\x13VerificationService\x12U\n\x0cUpdateStatus\x12!.verification.StatusUpdateRequest\x1a\".verification.StatusUpdateResponse\x12L\n\tInitOrder\x12\x1e.verification.InitOrderRequest\x1a\x1f.verification.InitOrderResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1etransaction_verification.proto\x12\x0cverification\"\x1f\n\x11InitOrderResponse\x12\n\n\x02ok\x18\x01 \x01(\x08\"\x87\x02\n\tOrderData\x12 \n\x04user\x18\x01 \x01(\x0b\x32\x12.verification.User\x12,\n\ncreditCard\x18\x02 \x01(\x0b\x32\x18.verification.CreditCard\x12\x13\n\x0buserComment\x18\x03 \x01(\t\x12!\n\x05items\x18\x04 \x03(\x0b\x32\x12.verification.Item\x12-\n\x0e\x62illingAddress\x18\x05 \x01(\x0b\x32\x15.verification.Address\x12\x16\n\x0eshippingMethod\x18\x06 \x01(\t\x12\x14\n\x0cgiftWrapping\x18\x07 \x01(\x08\x12\x15\n\rtermsAccepted\x18\x08 \x01(\x08\"%\n\x04User\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontact\x18\x02 \x01(\t\"A\n\nCreditCard\x12\x0e\n\x06number\x18\x01 \x01(\t\x12\x16\n\x0e\x65xpirationDate\x18\x02 \x01(\t\x12\x0b\n\x03\x63vv\x18\x03 \x01(\t\"&\n\x04Item\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x10\n\x08quantity\x18\x02 \x01(\x05\"T\n\x07\x41\x64\x64ress\x12\x0e\n\x06street\x18\x01 \x01(\t\x12\x0c\n\x04\x63ity\x18\x02 \x01(\t\x12\r\n\x05state\x18\x03 \x01(\t\x12\x0b\n\x03zip\x18\x04 \x01(\t\x12\x0f\n\x07\x63ountry\x18\x05 \x01(\t\"F\n\x10InitOrderRequest\x12\n\n\x02id\x18\x01 \x01(\t\x12&\n\x05order\x18\x02 \x01(\x0b\x32\x17.verification.OrderData2c\n\x13VerificationService\x12L\n\tInitOrder\x12\x1e.verification.InitOrderRequest\x1a\x1f.verification.InitOrderResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -23,24 +23,18 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
   _globals['_INITORDERRESPONSE']._serialized_start=48
   _globals['_INITORDERRESPONSE']._serialized_end=79
-  _globals['_STATUSUPDATEREQUEST']._serialized_start=82
-  _globals['_STATUSUPDATEREQUEST']._serialized_end=218
-  _globals['_STATUSUPDATERESPONSE']._serialized_start=220
-  _globals['_STATUSUPDATERESPONSE']._serialized_end=283
-  _globals['_ORDERDATA']._serialized_start=286
-  _globals['_ORDERDATA']._serialized_end=549
-  _globals['_USER']._serialized_start=551
-  _globals['_USER']._serialized_end=588
-  _globals['_CREDITCARD']._serialized_start=590
-  _globals['_CREDITCARD']._serialized_end=655
-  _globals['_ITEM']._serialized_start=657
-  _globals['_ITEM']._serialized_end=695
-  _globals['_ADDRESS']._serialized_start=697
-  _globals['_ADDRESS']._serialized_end=781
-  _globals['_VERIFYRESPONSE']._serialized_start=783
-  _globals['_VERIFYRESPONSE']._serialized_end=850
-  _globals['_INITORDERREQUEST']._serialized_start=852
-  _globals['_INITORDERREQUEST']._serialized_end=922
-  _globals['_VERIFICATIONSERVICE']._serialized_start=925
-  _globals['_VERIFICATIONSERVICE']._serialized_end=1111
+  _globals['_ORDERDATA']._serialized_start=82
+  _globals['_ORDERDATA']._serialized_end=345
+  _globals['_USER']._serialized_start=347
+  _globals['_USER']._serialized_end=384
+  _globals['_CREDITCARD']._serialized_start=386
+  _globals['_CREDITCARD']._serialized_end=451
+  _globals['_ITEM']._serialized_start=453
+  _globals['_ITEM']._serialized_end=491
+  _globals['_ADDRESS']._serialized_start=493
+  _globals['_ADDRESS']._serialized_end=577
+  _globals['_INITORDERREQUEST']._serialized_start=579
+  _globals['_INITORDERREQUEST']._serialized_end=649
+  _globals['_VERIFICATIONSERVICE']._serialized_start=651
+  _globals['_VERIFICATIONSERVICE']._serialized_end=750
 # @@protoc_insertion_point(module_scope)
