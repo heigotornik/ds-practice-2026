@@ -111,9 +111,9 @@ def checkout():
     # Print request object data
     app.logger.info("Received checkout: %s", request.data)
     order_id = str(uuid.uuid4())
-    init_verification_data(order_id, request_data)
-    init_fraud_detection_data(order_id, request_data)
     init_suggestion_data(order_id, request_data)
+    init_fraud_detection_data(order_id, request_data)
+    init_verification_data(order_id, request_data)
 
     ORDER_STATE[order_id] = {
         "success": False,
