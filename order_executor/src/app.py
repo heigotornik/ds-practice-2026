@@ -143,13 +143,13 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
         with grpc.insecure_channel("books_database:50058") as channel:
             try: 
                     
-                response = books_database_grpc.BooksDatabaseServiceStub(channel).Read(
+                response = books_database_grpc.BooksDatabaseStub(channel).Read(
                     books_database.ReadRequest(title=title))
                 
                 current_stock = response.stock
                 if current_stock >= quantity:
                     new_stock = current_stock - quantity
-                    write_resp = books_database_grpc.BooksDatabaseServiceStub(channel).Write(
+                    write_resp = books_database_grpc.BooksDatabaseStub(channel).Write(
                         books_database.WriteRequest(title=title, new_stock=new_stock))
                     logger.info("Executed order for %d of %s. New stock: %d", quantity, title, new_stock)
                     return write_resp.success
