@@ -41,7 +41,7 @@ dictConfig({
 
 logger = logging.getLogger(__name__)
 
-class BooksDatabaseService(books_database_grpc.BooksDatabaseServiceServicer):
+class BooksDatabaseService(books_database_grpc.BooksDatabaseServicer):
     def __init__(self):
         self.store = {}
 

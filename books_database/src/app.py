@@ -88,14 +88,14 @@ def serve():
             if replica.endswith(f":{port}"):
                 continue
             channel = grpc.insecure_channel(replica)
-            stub = books_database_grpc.BooksDatabaseServiceStub(channel)
+            stub = books_database_grpc.BooksDatabaseStub(channel)
             backup_stubs.append(stub)
 
-        books_database_grpc.add_BooksDatabaseServiceServicer_to_server(
+        books_database_grpc.add_BooksDatabaseServicer_to_server(
             PrimaryReplica(backup_stubs), server)
     else:
         logger.info("Starting server as backup")
-        books_database_grpc.add_BooksDatabaseServiceServicer_to_server(
+        books_database_grpc.add_BooksDatabaseServicer_to_server(
             BooksDatabaseService(), server)
         
     server.add_insecure_port(f"[::]:{port}")

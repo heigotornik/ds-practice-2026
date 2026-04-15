@@ -140,7 +140,7 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
     
 
     def execute_order(self, title="Some Book", quantity=1):
-        with grpc.insecure_channel("books_database:50058") as channel:
+        with grpc.insecure_channel("database_1:50058") as channel:
             try: 
                     
                 response = books_database_grpc.BooksDatabaseStub(channel).Read(
