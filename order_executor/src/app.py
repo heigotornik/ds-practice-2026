@@ -14,6 +14,10 @@ def add_proto_path(relative_path: str):
 
 add_proto_path('../../../utils/pb/order_executor')
 add_proto_path('../../../utils/pb/order_queue')
+add_proto_path('../../../utils/pb/books_database')
+
+import books_database_pb2 as books_database
+import books_database_pb2_grpc as books_database_grpc
 
 import order_executor_pb2 as order_executor
 import order_executor_pb2_grpc as order_executor_grpc
@@ -135,6 +139,27 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
                     continue
     
 
+    def execute_order(self, title="Some Book", quantity=1):
+        with grpc.insecure_channel("books_database:50058") as channel:
+            try: 
+                    
+                response = books_database_grpc.BooksDatabaseServiceStub(channel).Read(
+                    books_database.ReadRequest(title=title))
+                
+                current_stock = response.stock
+                if current_stock >= quantity:
+                    new_stock = current_stock - quantity
+                    write_resp = books_database_grpc.BooksDatabaseServiceStub(channel).Write(
+                        books_database.WriteRequest(title=title, new_stock=new_stock))
+                    logger.info("Executed order for %d of %s. New stock: %d", quantity, title, new_stock)
+                    return write_resp.success
+            except grpc.RpcError as e:
+                logger.error("Failed to contact books database service: %s", e)
+                return False
+        logger.warning("Not enough stock to execute order for %d of %s. Current stock: %d", quantity, title, current_stock)
+        return False
+            
+
     def process_orders(self):
         logger.debug("Processing orders as leader")
         with grpc.insecure_channel("queue:50054") as channel:
@@ -145,7 +170,7 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
                     logger.info("Processing order %s", order_id)
                     with self.processing_lock:
                         self.processing_order = True
-                    time.sleep(10)
+                    self.execute_order()
                     logger.info("Finished processing order %s", order_id)
                     with self.processing_lock:
                         self.processing_order = False
