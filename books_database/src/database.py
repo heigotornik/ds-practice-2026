@@ -3,6 +3,8 @@ import logging
 from logging.config import dictConfig
 import os
 import sys
+import threading
+from collections import defaultdict
 
 
 FILE = __file__ if '__file__' in globals() else os.getenv("PYTHONFILE", "")
@@ -44,7 +46,7 @@ logger = logging.getLogger(__name__)
 class BooksDatabaseService(books_database_grpc.BooksDatabaseServicer):
     def __init__(self):
         self.store = {}
-
+        self.locks = defaultdict(threading.Lock)
 
     def Read(self, request, context):
         logger.info("Received read request")
@@ -53,7 +55,9 @@ class BooksDatabaseService(books_database_grpc.BooksDatabaseServicer):
 
     def Write(self, request, context):
         logger.info("Received write request")
-        self.store[request.title] = request.new_stock
+        lock = self.locks[request.title]
+        with lock:
+            self.store[request.title] = request.new_stock
         return books_database.WriteResponse(success=True)
 
 
@@ -64,12 +68,14 @@ class PrimaryReplica(BooksDatabaseService):
         self.backup = backup_stubs
 
     def Write(self, request, context):
-        self.store[request.title] = request.new_stock
+        lock = self.locks[request.title]
+        with lock:
+            self.store[request.title] = request.new_stock
 
-        for backup_stub in self.backup:
-            try:
-                backup_stub.Write(request)
-            except Exception as e:
-                logger.error("Failed to write to backup: %s", e)
+            for backup_stub in self.backup:
+                try:
+                    backup_stub.Write(request)
+                except Exception as e:
+                    logger.error("Failed to write to backup: %s", e)
 
         return books_database.WriteResponse(success=True)
