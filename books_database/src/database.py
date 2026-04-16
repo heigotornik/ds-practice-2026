@@ -69,13 +69,18 @@ class PrimaryReplica(BooksDatabaseService):
 
     def Write(self, request, context):
         lock = self.locks[request.title]
+
+        # local update
         with lock:
             self.store[request.title] = request.new_stock
 
-            for backup_stub in self.backup:
-                try:
-                    backup_stub.Write(request)
-                except Exception as e:
-                    logger.error("Failed to write to backup: %s", e)
+        # replicate
+        success = True
+        for backup_stub in self.backup:
+            try:
+                backup_stub.Write(request)
+            except Exception as e:
+                logger.error("Failed to write to backup: %s", e)
+                success = False
 
-        return books_database.WriteResponse(success=True)
+        return books_database.WriteResponse(success=success)
