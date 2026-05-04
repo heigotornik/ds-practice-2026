@@ -15,9 +15,13 @@ def add_proto_path(relative_path: str):
 add_proto_path('../../../utils/pb/order_executor')
 add_proto_path('../../../utils/pb/order_queue')
 add_proto_path('../../../utils/pb/books_database')
+add_proto_path('../../../utils/pb/payment')
 
 import books_database_pb2 as books_database
 import books_database_pb2_grpc as books_database_grpc
+
+import payment_pb2 as payment
+import payment_pb2_grpc as payment_grpc
 
 import order_executor_pb2 as order_executor
 import order_executor_pb2_grpc as order_executor_grpc
@@ -60,11 +64,13 @@ logger = logging.getLogger(__name__)
 
 
 class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
-    def __init__(self, executor_id, known_ids, queue_stub):
+    def __init__(self, executor_id, known_ids, queue_stub, database_stub, payment_stub):
         self.executor_id = executor_id
 
         self.known_ids = known_ids # [(id, address)]
         self.queue_stub = queue_stub
+        self.database_stub = database_stub
+        self.payment_stub = payment_stub
         
         self.lock = threading.RLock()
         self.leader_id = None
@@ -139,25 +145,54 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
                     continue
     
 
-    def execute_order(self, title="Some Book", quantity=1):
+    def execute_order(self, order_id, title="Some Book", quantity=1):
+        readyVotes = []
         with grpc.insecure_channel("database_1:50058") as channel:
             try: 
-                    
-                response = books_database_grpc.BooksDatabaseStub(channel).Read(
-                    books_database.ReadRequest(title=title))
-                
-                current_stock = response.stock
-                if current_stock >= quantity:
-                    new_stock = current_stock - quantity
-                    write_resp = books_database_grpc.BooksDatabaseStub(channel).Write(
-                        books_database.WriteRequest(title=title, new_stock=new_stock))
-                    logger.info("Executed order for %d of %s. New stock: %d", quantity, title, new_stock)
-                    return write_resp.success
+                response = self.database_stub(channel).Prepare(
+                    books_database.PrepareRequest(transaction_id = 123, title=title, quantity=quantity))
+                logger.info("Preparing database transaction id %d for %d of %s", order_id, quantity, title)
+                readyVotes.append(response.ready)
             except grpc.RpcError as e:
                 logger.error("Failed to contact books database service: %s", e)
-                return False
-        logger.warning("Not enough stock to execute order for %d of %s. Current stock: %d", quantity, title, current_stock)
-        return False
+                readyVotes.append(False)
+        with grpc.insecure_channel("payment:50061") as channel:
+            try: 
+                response = self.payment_stub(channel).Prepare(
+                    payment.PrepareRequest(order_id= 123))
+                logger.info("Preparing payment transaction id %d for %d of %s", order_id)
+                readyVotes.append(response.ready)
+            except grpc.RpcError as e:
+                logger.error("Failed to contact payment service: %s", e)
+                readyVotes.append(False)
+
+        if all(readyVotes):
+            logger.info("All transactions prepared for order %d", order_id)
+
+            with grpc.insecure_channel("database_1:50058") as channel:
+                response = self.database_stub(channel).Commit(
+                    books_database.CommitRequest(transaction_id = 123))
+                logger.info("Committing database transaction for order id %d", order_id)
+
+            with grpc.insecure_channel("payment:50061") as channel:
+                response = self.payment_stub(channel).Commit(
+                    payment.CommitRequest(order_id = 123))
+                logger.info("Committing payment transaction for order id %d", order_id)
+            logger.info("All transactions committed for order id %d", order_id)
+
+        else:
+            logger.info("Failed to prepare transactions for order %d, aborting", order_id)
+
+            with grpc.insecure_channel("database_1:50058") as channel:
+                response = self.database_stub(channel).Abort(
+                    books_database.AbortRequest(transaction_id = 123))
+                logger.info("Aborting database transaction for order id %d", order_id)
+
+            with grpc.insecure_channel("payment:50061") as channel:
+                response = self.payment_stub(channel).Abort(
+                    payment.AbortRequest(order_id = 123))
+                logger.info("Aborting payment transaction for order id %d", order_id)
+            logger.info("All transactions aborted for order id %d", order_id)
             
 
     def process_orders(self):
@@ -170,7 +205,7 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
                     logger.info("Processing order %s", order_id)
                     with self.processing_lock:
                         self.processing_order = True
-                    self.execute_order()
+                    self.execute_order(order_id=order_id)
                     logger.info("Finished processing order %s", order_id)
                     with self.processing_lock:
                         self.processing_order = False
@@ -279,6 +314,8 @@ def serve():
             executor_id=int(exec_id),
             known_ids=known_ids,
             queue_stub=order_queue_grpc.OrderQueueServiceStub
+            database_stub=books_database_grpc.BooksDatabaseStub
+            payment_stub=payment_grpc.PaymentServiceStub
         )
 
     order_executor_grpc.add_OrderExecutorServiceServicer_to_server(
