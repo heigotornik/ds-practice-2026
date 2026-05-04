@@ -2,6 +2,7 @@ import json
 import sys
 import os
 import time
+import uuid 
 
 # This set of lines are needed to import the gRPC stubs.
 # The path of the stubs is relative to the current file, or absolute inside the container.
@@ -146,12 +147,13 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
     
 
     def execute_order(self, order_id, title="Some Book", quantity=1):
+        transaction_id = str(uuid.uuid4())
         readyVotes = []
         with grpc.insecure_channel("database_1:50058") as channel:
             try: 
                 response = self.database_stub(channel).Prepare(
-                    books_database.PrepareRequest(transaction_id = 123, title=title, quantity=quantity))
-                logger.info("Preparing database transaction id %d for %d of %s", order_id, quantity, title)
+                    books_database.PrepareRequest(transaction_id = transaction_id, title=title, quantity=quantity))
+                logger.info("Preparing database transaction id %s for %d of %s", order_id, quantity, title)
                 readyVotes.append(response.ready)
             except grpc.RpcError as e:
                 logger.error("Failed to contact books database service: %s", e)
@@ -159,54 +161,54 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
         with grpc.insecure_channel("payment:50061") as channel:
             try: 
                 response = self.payment_stub(channel).Prepare(
-                    payment.PrepareRequest(order_id= 123))
-                logger.info("Preparing payment transaction id %d for %d of %s", order_id)
+                    payment.PrepareRequest(order_id=  order_id))
+                logger.info("Preparing payment transaction id %s for %d of %s",  order_id, quantity, title)
                 readyVotes.append(response.ready)
             except grpc.RpcError as e:
                 logger.error("Failed to contact payment service: %s", e)
                 readyVotes.append(False)
 
         if all(readyVotes):
-            logger.info("All transactions prepared for order %d", order_id)
+            logger.info("All transactions prepared for order %s", order_id)
 
             with grpc.insecure_channel("database_1:50058") as channel:
                 response = self.database_stub(channel).Commit(
-                    books_database.CommitRequest(transaction_id = 123))
-                logger.info("Committing database transaction for order id %d", order_id)
+                    books_database.CommitRequest(transaction_id = transaction_id))
+                logger.info("Committing database transaction for order id %s", order_id)
 
             with grpc.insecure_channel("payment:50061") as channel:
                 response = self.payment_stub(channel).Commit(
-                    payment.CommitRequest(order_id = 123))
-                logger.info("Committing payment transaction for order id %d", order_id)
-            logger.info("All transactions committed for order id %d", order_id)
+                    payment.CommitRequest(order_id = str(order_id)))
+                logger.info("Committing payment transaction for order id %s", order_id)
+            logger.info("All transactions committed for order id %s", order_id)
 
         else:
-            logger.info("Failed to prepare transactions for order %d, aborting", order_id)
+            logger.info("Failed to prepare transactions for order %s, aborting", order_id)
 
             with grpc.insecure_channel("database_1:50058") as channel:
                 response = self.database_stub(channel).Abort(
-                    books_database.AbortRequest(transaction_id = 123))
-                logger.info("Aborting database transaction for order id %d", order_id)
+                    books_database.AbortRequest(transaction_id = transaction_id))
+                logger.info("Aborting database transaction for order id %s", order_id)
 
             with grpc.insecure_channel("payment:50061") as channel:
                 response = self.payment_stub(channel).Abort(
-                    payment.AbortRequest(order_id = 123))
-                logger.info("Aborting payment transaction for order id %d", order_id)
-            logger.info("All transactions aborted for order id %d", order_id)
+                    payment.AbortRequest(order_id = str(order_id)))
+                logger.info("Aborting payment transaction for order id %s", order_id)
+            logger.info("All transactions aborted for order id %s", order_id)
             
 
     def process_orders(self):
         logger.debug("Processing orders as leader")
         with grpc.insecure_channel("queue:50054") as channel:
             try:
-                order_id = self.queue_stub(channel).Dequeue(order_queue.DequeueRequest(dummy=str(1)))
+                order = self.queue_stub(channel).Dequeue(order_queue.DequeueRequest(dummy=str(1)))
 
-                if order_id is not None:
-                    logger.info("Processing order %s", order_id)
+                if order.found:
+                    logger.info("Processing order %s", order.id)
                     with self.processing_lock:
                         self.processing_order = True
-                    self.execute_order(order_id=order_id)
-                    logger.info("Finished processing order %s", order_id)
+                    self.execute_order(order_id = order.id)
+                    logger.info("Finished processing order %s", order.id)
                     with self.processing_lock:
                         self.processing_order = False
                 else:
@@ -313,8 +315,8 @@ def serve():
     exec_service = ExecutorService(
             executor_id=int(exec_id),
             known_ids=known_ids,
-            queue_stub=order_queue_grpc.OrderQueueServiceStub
-            database_stub=books_database_grpc.BooksDatabaseStub
+            queue_stub=order_queue_grpc.OrderQueueServiceStub,
+            database_stub=books_database_grpc.BooksDatabaseStub,
             payment_stub=payment_grpc.PaymentServiceStub
         )
 

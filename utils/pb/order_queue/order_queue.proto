@@ -29,5 +29,6 @@ message DequeueRequest{
 }
 
 message DequeueResponse {
-  string id = 1;
+  bool found = 1;
+  string id = 2;
 }

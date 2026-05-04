@@ -222,7 +222,7 @@ class PrimaryReplica(BooksDatabaseService):
             try:
                 resp = stub.Prepare(
                     books_database.PrepareRequest(
-                        transaction_id=tx_id,
+                        transaction_id=str(tx_id) ,
                         title=title,
                         quantity=quantity,
                     )

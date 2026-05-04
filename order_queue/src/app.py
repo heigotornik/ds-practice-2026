@@ -71,14 +71,13 @@ class OrderQueueService(order_queue_grpc.OrderQueueServiceServicer):
     def Dequeue(self, request, context):
         with self.lock:
             logger.info("Dequeue request received")
-            result = None
+            result = ""
+            found = True
             try:
                 result = self.queue.pop()
             except:
-                logger.error("Failed to dequeue order")
-                logger.debug("DEV: returning id 1")
-                result = 1
-        return order_queue.DequeueResponse(id=str(result))
+                found = False
+        return order_queue.DequeueResponse(found=found, id=str(result))
     
     def AccessResource(self, request, context):
         result = True
