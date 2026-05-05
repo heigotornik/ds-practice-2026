@@ -2,24 +2,50 @@ syntax = "proto3";
 
 package books_database;
 
-service BooksDatabase{
-    rpc Read (ReadRequest) returns (ReadResponse);
-    rpc Write (WriteRequest) returns (WriteResponse);
+service BooksDatabase {
+  rpc Read    (ReadRequest)    returns (ReadResponse);
+
+  // 2PC
+  rpc Prepare (PrepareRequest) returns (PrepareResponse);
+  rpc Commit  (CommitRequest)  returns (CommitResponse);
+  rpc Abort   (AbortRequest)   returns (AbortResponse);
 }
 
+
 message ReadRequest {
-    string title = 1;
+  string title = 1;
 }
 
 message ReadResponse {
-    int32 stock = 1;
+  int32 stock = 1;
 }
 
-message WriteRequest {
-    string title = 1;
-    int32 new_stock = 2;
+
+message PrepareRequest {
+  string transaction_id = 1;
+
+  string title = 2;
+  int32 quantity = 3;
 }
 
-message WriteResponse {
-    bool success = 1;
+message PrepareResponse {
+  bool ready = 1;
+}
+
+
+message CommitRequest {
+  string transaction_id = 1;
+}
+
+message CommitResponse {
+  bool success = 1;
+}
+
+
+message AbortRequest {
+  string transaction_id = 1;
+}
+
+message AbortResponse {
+  bool aborted = 1;
 }

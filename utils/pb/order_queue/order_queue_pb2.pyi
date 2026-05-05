@@ -35,7 +35,9 @@ class DequeueRequest(_message.Message):
     def __init__(self, dummy: _Optional[str] = ...) -> None: ...
 
 class DequeueResponse(_message.Message):
-    __slots__ = ("id",)
+    __slots__ = ("found", "id")
+    FOUND_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
+    found: bool
     id: str
-    def __init__(self, id: _Optional[str] = ...) -> None: ...
+    def __init__(self, found: bool = ..., id: _Optional[str] = ...) -> None: ...

@@ -56,6 +56,9 @@ import books_database_pb2_grpc as books_database_grpc
 
 
 def serve():
+    initial_store = {
+        "Some Book": 400
+    }
     server = grpc.server(futures.ThreadPoolExecutor())
 
     # Get port and is primary from environment variables, with defaults
@@ -92,11 +95,11 @@ def serve():
             backup_stubs.append(stub)
 
         books_database_grpc.add_BooksDatabaseServicer_to_server(
-            PrimaryReplica(backup_stubs), server)
+            PrimaryReplica(backup_stubs, initial_store), server)
     else:
         logger.info("Starting server as backup")
         books_database_grpc.add_BooksDatabaseServicer_to_server(
-            BooksDatabaseService(), server)
+            BooksDatabaseService(initial_store), server)
         
     server.add_insecure_port(f"[::]:{port}")
     server.start()
