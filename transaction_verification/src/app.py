@@ -7,7 +7,6 @@ import logging
 import threading
 from typing import List
 
-from subservice import RunnableEvent
 
 from card_books_verification import CardBookVerificationProcess
 
@@ -16,20 +15,27 @@ from user_verification import UserVerificationProcess
 # This set of lines are needed to import the gRPC stubs.
 # The path of the stubs is relative to the current file, or absolute inside the container.
 # Change these lines only if strictly needed.
+
 FILE = __file__ if '__file__' in globals() else os.getenv("PYTHONFILE", "")
-transaction_verification_grpc_path = os.path.abspath(os.path.join(FILE, '../../../utils/pb/transaction_verification'))
-sys.path.insert(0, transaction_verification_grpc_path)
+def add_path(relative_path: str):
+    abs_path = os.path.abspath(os.path.join(FILE, relative_path))
+    if abs_path not in sys.path:
+        sys.path.insert(0, abs_path)
+
+add_path('../../../utils/pb/transaction_verification')
+add_path('../../../utils/service')
+
 from interceptors import LoggingInterceptor
 import transaction_verification_pb2 as transaction_verification
 import transaction_verification_pb2_grpc as transaction_verification_grpc
-
+import service_base as service
 
 import grpc
 from concurrent import futures
 
 
 rpc_executor = futures.ThreadPoolExecutor(max_workers=10)
-background_executor = futures.ThreadPoolExecutor(max_workers=4)
+background_executor = futures.ThreadPoolExecutor(max_workers=20)
 
 dictConfig({
     'version': 1,
@@ -76,14 +82,27 @@ class VerificationService(transaction_verification_grpc.VerificationServiceServi
         while True:
             try:
                 with cond:
-                    cond.wait_for(lambda: len(service.get_events_to_run()) > 0)
+                    cond.wait_for(service.has_events_to_run)
                     events = service.get_events_to_run()
 
-                logger.debug("Worker got %d events for %s", len(events), service.__class__.__name__)
+                logger.debug(
+                    "Worker got %d events for %s",
+                    len(events),
+                    service.__class__.__name__,
+                )
 
                 for event in events:
-                    service.add_task_running(event.id)
+                    action_name = getattr(event.action, "__name__", repr(event.action))
+
+                    logger.debug(
+                        "[%s] Event %s is starting, required_vc=%s",
+                        event.id,
+                        action_name,
+                        event.required_vc,
+                    )
+
                     background_executor.submit(event.action, event.id)
+
             except Exception:
                 logger.exception("Worker crashed for %s", service.__class__.__name__)
                 raise

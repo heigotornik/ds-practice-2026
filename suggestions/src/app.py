@@ -16,7 +16,7 @@ import suggestion_pb2 as suggestion
 import suggestion_pb2_grpc as suggestion_grpc
 
 rpc_executor = futures.ThreadPoolExecutor(max_workers=10)
-background_executor = futures.ThreadPoolExecutor(max_workers=4)
+background_executor = futures.ThreadPoolExecutor(max_workers=20)
 
 dictConfig({
     'version': 1,
@@ -57,15 +57,27 @@ class SuggestionService(suggestion_grpc.SuggestionServiceServicer):
         while True:
             try:
                 with cond:
-                    logger.debug("Worker waiting for events for %s", service.__class__.__name__)
-                    cond.wait_for(lambda: len(service.get_events_to_run()) > 0)
+                    cond.wait_for(service.has_events_to_run)
                     events = service.get_events_to_run()
 
-                logger.debug("Worker got %d events for %s", len(events), service.__class__.__name__)
+                logger.debug(
+                    "Worker got %d events for %s",
+                    len(events),
+                    service.__class__.__name__,
+                )
 
                 for event in events:
-                    service.add_task_running(event.id)
+                    action_name = getattr(event.action, "__name__", repr(event.action))
+
+                    logger.debug(
+                        "[%s] Event %s is starting, required_vc=%s",
+                        event.id,
+                        action_name,
+                        event.required_vc,
+                    )
+
                     background_executor.submit(event.action, event.id)
+
             except Exception:
                 logger.exception("Worker crashed for %s", service.__class__.__name__)
                 raise
@@ -81,30 +93,36 @@ class SuggestionService(suggestion_grpc.SuggestionServiceServicer):
             request.id,
         )
 
-        if request.id not in self.bookSuggestion.orders:
+        with self.bookSuggestion.state as state:
+            order_exists = request.id in state.orders
+
+        if not order_exists:
             return suggestion.StatusUpdateResponse(
                 ok=False,
-                message="Order ID not found. Please initialize the order first."
+                message="Order ID not found. Please initialize the order first.",
             )
 
-        incoming_vc = tuple([
+        incoming_vc = (
             request.TransactionServiceA,
             request.TransactionServiceB,
             request.FraudDetection,
-            request.Suggestions
-        ])
-
-        logger.debug(
-            "Merging VC for transaction %s into both services: %s",
-            request.id,
-            incoming_vc
+            request.Suggestions,
         )
 
-        self.bookSuggestion.update_with_incoming_vector_clock(request.id, incoming_vc)
+        logger.debug(
+            "Merging VC for transaction %s into BookSuggestionProcess: %s",
+            request.id,
+            incoming_vc,
+        )
+
+        self.bookSuggestion.update_with_incoming_vector_clock(
+            request.id,
+            incoming_vc,
+        )
 
         return suggestion.StatusUpdateResponse(
             ok=True,
-            message="Status updated successfully"
+            message="Status updated successfully",
         )
 
 def serve():

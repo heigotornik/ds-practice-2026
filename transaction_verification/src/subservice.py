@@ -7,13 +7,16 @@ import grpc
 
 
 FILE = __file__ if '__file__' in globals() else os.getenv("PYTHONFILE", "")
-def add_proto_path(relative_path: str):
+def add_path(relative_path: str):
     abs_path = os.path.abspath(os.path.join(FILE, relative_path))
     if abs_path not in sys.path:
         sys.path.insert(0, abs_path)
 
-add_proto_path('../../../utils/pb/orchestrator')
-add_proto_path('../../../utils/pb/fraud_detection')
+add_path('../../../utils/pb/orchestrator')
+add_path('../../../utils/pb/fraud_detection')
+add_path('../../../utils/service')
+
+import service_base as service
 
 
 import orchestrator_pb2 as orchestrator
@@ -26,41 +29,24 @@ import fraud_detection_pb2_grpc as fraud_detection_grpc
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class RunnableEvent:
-    id: str
-    action: callable
 
-class Subservice:
-    def __init__(self):
-        self.orders = {}
-
-        # VC updating
-        self.lock = threading.RLock()
-        self.condition = threading.Condition(self.lock)
-        self.vc = {}
-        # ID to events
-        # no multiple tasks running with same ID supported 
-        self.tasks_running = set()
-
-        # Create connection to orchestrator
-        channel = grpc.insecure_channel("orchestrator:50050")
-        self.orchestrator_stub = orchestrator_grpc.CheckoutResultServiceStub(channel)
-        
-
-    def get_service_events(self):
-        raise NotImplementedError("service events are not implemented")
-    
+class TransactionServicesBase(service.Subservice):
     def send_vc_to_fraud_detection(self, id):
-        with self.lock:
+        with self.state as state:
+            vc = state.vc.get(id)
+
+            if vc is None:
+                logger.warning("[%s] Cannot send VC update; unknown id", id)
+                return
+
             with grpc.insecure_channel("fraud_detection:50051") as channel:
                 stub = fraud_detection_grpc.FraudDetectionServiceStub(channel)
                 request = fraud_detection.StatusUpdateRequest(
                     id=id,
-                    TransactionServiceA=self.vc[id][0],
-                    TransactionServiceB=self.vc[id][1],
-                    FraudDetection=self.vc[id][2],
-                    Suggestions=self.vc[id][3]
+                    TransactionServiceA=vc[0],
+                    TransactionServiceB=vc[1],
+                    FraudDetection=vc[2],
+                    Suggestions=vc[3]
                 )
                 try:
                     resp = stub.UpdateStatus(request)
@@ -71,127 +57,3 @@ class Subservice:
                 except grpc.RpcError as e:
                     logger.exception("[%s] Failed to send VC update to fraud detection", id)
                     self._notify_orchestrator_failure(id, str(e))
-
-    def _runnable_event_with_cleanup(self, fn, id):
-        try:
-            logger.debug("[%s] Running event with internal cleanup", id)
-            verify_response = fn(id)
-            logger.debug("[%s] Event with cleanup FINISHED", id)
-
-            if verify_response is not None and not verify_response.isValid:
-                logger.error("[%s] Request is not valid", id)
-                # Clean up in case of errors to avoid looping the same event.
-                self.cleanup(id)
-                self._notify_orchestrator_failure(
-                    id,
-                    verify_response.message
-                )
-
-        except Exception as e:
-            logger.error("[%s] Task failed", id)
-            # Clean up in case of errors to avoid looping the same event.
-            self.cleanup(id)
-            self._notify_orchestrator_failure(
-                id,
-                str(e)
-            )
-        finally:
-            self.remove_task_running(id)
-
-    def _notify_orchestrator_failure(self, order_id, message):
-        logger.info("[%s] Notifying orchestrator about failure: %s", order_id, message)
-        request = orchestrator.CheckoutResult(
-            orderId=order_id,
-            success=False,
-            message=message
-        )
-        try:
-            self.orchestrator_stub.ReportResult(request)
-
-        except grpc.RpcError:
-            logger.exception("[%s] Failed to notify orchestrator", order_id)
-   
-    
-    def event_with_cleanup(self, fn):
-        return lambda ident: self._runnable_event_with_cleanup(fn, ident)
-
-
-    def add_task_running(self, id):
-        with self.condition:
-            self.tasks_running.add(id)
-            logger.debug("[%s] Added running task", id)
-            self.condition.notify()
-    
-    def remove_task_running(self, id):
-        with self.condition:
-            self.tasks_running.remove(id)
-            logger.debug("[%s] Removed running task", id)
-            self.condition.notify()
-    
-    def _create_new_vector_clock_entry(self, id):
-        self.vc[id] = (0,0,0,0)
-
-    def initialize_order(self, id, order):
-        logger.debug("[%s] Received order init", id)
-        with self.condition:
-            logger.debug("[%s] Initializing order", id)
-            logger.debug("[%s] Events %s", id, str(self.tasks_running))
-            self._create_new_vector_clock_entry(id)
-            self.orders[id] = order
-            self.condition.notify()
-    
-    def update_vector_clock(self, id):
-        raise NotImplementedError("vector clock update is not implemented")
-    
-    def cleanup(self, id):
-        with self.lock:
-            logger.debug("[%s] Applying cleanup in service %s", id, self.__class__.__name__)
-            self.orders.pop(id, None)
-            self.vc.pop(id, None)
-
-    def get_events_to_run(self):
-        with self.lock:
-            logger.debug("Getting events to run for service %s", self.__class__.__name__)
-            events_to_run = []
-            for id in list(self.orders):
-                if id in self.tasks_running:
-                    continue
-                event = self._get_event(id)
-                if event is not None:
-                    events_to_run.append(RunnableEvent(id, event))
-            logger.debug("Found %d events", len(events_to_run))
-            return events_to_run
-
-    def _get_event(self, id):
-        for event_vc, action in self.get_service_events().items():
-            if all(self.vc[id][i] >= event_vc[i] for i in range(len(self.vc[id]))):
-                return action
-        return None
-    
-    def update_with_incoming_vector_clock(self, id, incoming_vc):
-        with self.lock:
-            if id not in self.vc:
-                logger.warning("VC update for unknown id %s, initializing", id)
-                self.vc[id] = incoming_vc
-            else:
-                current = self.vc[id]
-
-                if len(current) != len(incoming_vc):
-                    raise ValueError(
-                        f"VC length mismatch: local={current}, incoming={incoming_vc}"
-                    )
-
-                merged = tuple(
-                    max(current[i], incoming_vc[i])
-                    for i in range(len(current))
-                )
-
-                logger.debug(
-                    "Merging VC for %s: local=%s incoming=%s -> merged=%s",
-                    id,
-                    current,
-                    incoming_vc,
-                    merged
-                )
-
-                self.vc[id] = merged

@@ -18,7 +18,7 @@ import logging
 from fraud_detection import FraudDetectionProcess 
 
 rpc_executor = futures.ThreadPoolExecutor(max_workers=10)
-background_executor = futures.ThreadPoolExecutor(max_workers=4)
+background_executor = futures.ThreadPoolExecutor(max_workers=20)
 
 dictConfig({
     'version': 1,
@@ -67,14 +67,27 @@ class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
         while True:
             try:
                 with cond:
-                    cond.wait_for(lambda: len(service.get_events_to_run()) > 0)
+                    cond.wait_for(service.has_events_to_run)
                     events = service.get_events_to_run()
 
-                logger.debug("Worker got %d events for %s", len(events), service.__class__.__name__)
+                logger.debug(
+                    "Worker got %d events for %s",
+                    len(events),
+                    service.__class__.__name__,
+                )
 
                 for event in events:
-                    service.add_task_running(event.id)
+                    action_name = getattr(event.action, "__name__", repr(event.action))
+
+                    logger.debug(
+                        "[%s] Event %s is starting, required_vc=%s",
+                        event.id,
+                        action_name,
+                        event.required_vc,
+                    )
+
                     background_executor.submit(event.action, event.id)
+
             except Exception:
                 logger.exception("Worker crashed for %s", service.__class__.__name__)
                 raise
@@ -90,31 +103,38 @@ class FraudDetectionService(fraud_detection_grpc.FraudDetectionServiceServicer):
             request.id,
         )
 
-        if request.id not in self.fraudDetectionProcess.orders:
+        with self.fraudDetectionProcess.state as state:
+            order_exists = request.id in state.orders
+
+        if not order_exists:
             return fraud_detection.StatusUpdateResponse(
                 ok=False,
-                message="Order ID not found. Please initialize the order first."
+                message="Order ID not found. Please initialize the order first.",
             )
 
-        incoming_vc = tuple([
+        incoming_vc = (
             request.TransactionServiceA,
             request.TransactionServiceB,
             request.FraudDetection,
-            request.Suggestions
-        ])
-
-        logger.debug(
-            "Merging VC for transaction %s into both services: %s",
-            request.id,
-            incoming_vc
+            request.Suggestions,
         )
 
-        self.fraudDetectionProcess.update_with_incoming_vector_clock(request.id, incoming_vc)
+        logger.debug(
+            "Merging VC for transaction %s into FraudDetectionProcess: %s",
+            request.id,
+            incoming_vc,
+        )
+
+        self.fraudDetectionProcess.update_with_incoming_vector_clock(
+            request.id,
+            incoming_vc,
+        )
+
         self.fraudDetectionProcess.update_vector_clock(request.id)
 
         return fraud_detection.StatusUpdateResponse(
             ok=True,
-            message="Status updated successfully"
+            message="Status updated successfully",
         )
 
 

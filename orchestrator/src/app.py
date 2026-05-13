@@ -1,14 +1,6 @@
 import sys
 import os
 
-# This set of lines are needed to import the gRPC stubs.
-# The path of the stubs is relative to the current file, or absolute inside the container.
-# Change these lines only if strictly needed.
-
-# Import Flask.
-# Flask is a web framework for Python.
-# It allows you to build a web application quickly.
-# For more information, see https://flask.palletsprojects.com/en/latest/
 from logging.config import dictConfig
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -22,7 +14,7 @@ import grpc
 from fraud_api import init_fraud_detection_data
 from suggestion_api import init_suggestion_data
 from exceptions import FraudulentCheckout, InvalidCheckout
-from verification_api import  init_verification_data
+from verification_api import init_verification_data
 from concurrent.futures import ThreadPoolExecutor
 
 FILE = __file__ if '__file__' in globals() else os.getenv("PYTHONFILE", "")
@@ -35,6 +27,7 @@ order_queue_grpc_path = os.path.abspath(os.path.join(FILE, '../../../utils/pb/or
 sys.path.insert(0, order_queue_grpc_path)
 import order_queue_pb2 as order_queue
 import order_queue_pb2_grpc as order_queue_grpc
+
 
 dictConfig({
     'version': 1,
@@ -56,40 +49,67 @@ dictConfig({
 EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
 app = Flask(__name__)
-# Enable CORS for the app.
 CORS(app, resources={r'/*': {'origins': '*'}})
 
 ORDER_STATE = {}
-TOTAL_SERVICES_TO_CHECK = 1  # We only need a "success" message from suggestions service
+TOTAL_SERVICES_TO_CHECK = 1
 LOCK = threading.Lock()
 
-class CheckoutResultService(
-    orchestrator_grpc.CheckoutResultServiceServicer):
 
+class CheckoutResultService(
+    orchestrator_grpc.CheckoutResultServiceServicer
+):
     def ReportResult(self, request, context):
         with LOCK:
             app.logger.info(
-                "Received result orderId=%s success=%s message=%s",
+                "[%s] Received result success=%s message=%s",
                 request.orderId,
                 request.success,
-                request.message
+                request.message,
             )
+
             order = ORDER_STATE.get(request.orderId)
+
             if not order:
+                app.logger.warning(
+                    "[%s] Received result for unknown order",
+                    request.orderId,
+                )
                 return orchestrator.Ack(received=False)
 
             if not request.success:
+                app.logger.error(
+                    "[%s] Checkout failed: %s",
+                    request.orderId,
+                    request.message,
+                )
+
                 order["success"] = False
                 order["message"] = request.message
                 order["done"].set()
+
                 return orchestrator.Ack(received=True)
 
             order["responses"] += 1
+
+            app.logger.debug(
+                "[%s] Received successful response %d/%d",
+                request.orderId,
+                order["responses"],
+                TOTAL_SERVICES_TO_CHECK,
+            )
+
             if order["responses"] == TOTAL_SERVICES_TO_CHECK:
+                app.logger.info(
+                    "[%s] Checkout completed successfully",
+                    request.orderId,
+                )
+
                 order["success"] = True
                 order["message"] = request.message
                 order["suggested_books"] = request.suggestedBooks
                 order["done"].set()
+
         return orchestrator.Ack(received=True)
 
 
@@ -97,20 +117,22 @@ class CheckoutResultService(
 def invalid_api_usage(e):
     return jsonify(e.to_dict()), e.status_code
 
+
 @app.errorhandler(FraudulentCheckout)
-def invalid_api_usage(e):
+def fraudulent_checkout(e):
     return jsonify(e.to_dict()), e.status_code
+
 
 @app.route('/checkout', methods=['POST'])
 def checkout():
     """
     Responds with a JSON object containing the order ID, status, and suggested books.
     """
-    # Get request object data to json
-    request_data = json.loads(request.data)
-    # Print request object data
-    app.logger.info("Received checkout: %s", request.data)
     order_id = str(uuid.uuid4())
+    request_data = json.loads(request.data)
+
+    app.logger.info("[%s] Received checkout: %s", order_id, request.data)
+
     init_suggestion_data(order_id, request_data)
     init_fraud_detection_data(order_id, request_data)
     init_verification_data(order_id, request_data)
@@ -120,31 +142,49 @@ def checkout():
         "message": "",
         "suggested_books": [],
         "done": threading.Event(),
-        "responses": 0
+        "responses": 0,
     }
-    finished = ORDER_STATE[order_id]["done"].wait(timeout=5)
+
+    app.logger.debug("[%s] Waiting for checkout result", order_id)
+
+    finished = ORDER_STATE[order_id]["done"].wait(timeout=30)
 
     if not finished:
-        return {"status":"FAILED"},408
+        app.logger.warning("[%s] Checkout timed out", order_id)
+        return {"status": "FAILED"}, 408
 
     order = ORDER_STATE[order_id]
+
     if not order["success"]:
+        app.logger.error(
+            "[%s] Checkout rejected: %s",
+            order_id,
+            order["message"],
+        )
+
         return {
-            "orderId":order_id,
-            "status":"FAILED",
-            "message":order["message"],
-            'suggestedBooks': []
+            "orderId": order_id,
+            "status": "FAILED",
+            "message": order["message"],
+            "suggestedBooks": [],
         }
 
     send_order_to_queue(order_id)
-    
+
+    app.logger.info("[%s] Checkout approved", order_id)
+
     return {
-        "orderId":order_id,
-        "status":"Order Approved",
-        'suggestedBooks': [
-            {'bookId': order["suggested_books"][0].bookId, 'title': order["suggested_books"][0].title, 'author': order["suggested_books"][0].author},
-        ]
+        "orderId": order_id,
+        "status": "Order Approved",
+        "suggestedBooks": [
+            {
+                "bookId": order["suggested_books"][0].bookId,
+                "title": order["suggested_books"][0].title,
+                "author": order["suggested_books"][0].author,
+            },
+        ],
     }
+
 
 def send_order_to_queue(order_id):
     try:
@@ -156,35 +196,38 @@ def send_order_to_queue(order_id):
             )
 
             if response.ok:
-                app.logger.info("Order %s enqueued successfully", order_id)
+                app.logger.info("[%s] Order enqueued successfully", order_id)
             else:
-                app.logger.error("Failed to enqueue order %s", order_id)
+                app.logger.error("[%s] Failed to enqueue order", order_id)
 
-    except grpc.RpcError as e:
-        app.logger.error("Queue service unreachable: %s", e)
+    except grpc.RpcError:
+        app.logger.exception("[%s] Queue service unreachable", order_id)
+
 
 def start_grpc():
     server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=10)
     )
+
     orchestrator_grpc.add_CheckoutResultServiceServicer_to_server(
         CheckoutResultService(),
-        server
+        server,
     )
 
     server.add_insecure_port('[::]:50050')
     server.start()
+
     logging.info("Server started. Listening on port 50050")
+
     server.wait_for_termination()
+
 
 if __name__ == '__main__':
     grpc_thread = threading.Thread(
         target=start_grpc,
-        daemon=True
+        daemon=True,
     )
+
     grpc_thread.start()
 
-    # Run the app in debug mode to enable hot reloading.
-    # This is useful for development.
-    # The default port is 5000.
     app.run(host='0.0.0.0', threaded=True)
