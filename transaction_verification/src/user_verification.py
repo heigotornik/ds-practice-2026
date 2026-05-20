@@ -41,6 +41,12 @@ logger = logging.getLogger(__name__)
 
 
 class UserVerificationProcess(TransactionServicesBase):
+    def __init__(self, app_service_name: str = "transaction-verification-service"):
+        super().__init__(
+            app_service_name=app_service_name,
+            subservice_name="user-verification",
+        )
+
     def get_service_events(self):
         return {
             (0, 2, 0, 0): self.event_with_cleanup(self.cleanup),

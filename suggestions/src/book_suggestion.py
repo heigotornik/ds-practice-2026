@@ -44,6 +44,12 @@ dictConfig({
 logger = logging.getLogger(__name__)
 
 class BookSuggestionProcess(service.Subservice):
+    def __init__(self, app_service_name: str = "suggestions-service"):
+        super().__init__(
+            app_service_name=app_service_name,
+            subservice_name="book-suggestion",
+        )
+
     def notify_orchestrator_success(self, order_id, suggested_books):
         logger.info("[%s] Notifying orchestrator about success", order_id)
 

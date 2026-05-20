@@ -50,6 +50,12 @@ dictConfig({
 logger = logging.getLogger(__name__)
 
 class FraudDetectionProcess(service.Subservice):
+    def __init__(self, app_service_name: str = "fraud-detection-service"):
+        super().__init__(
+            app_service_name=app_service_name,
+            subservice_name="fraud-detection",
+        )
+
     def send_vc_to_suggestion(self, id):
         with self.state as state:
             vc = state.vc.get(id)
