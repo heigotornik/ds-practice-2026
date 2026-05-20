@@ -207,7 +207,7 @@ class ExecutorService(order_executor_grpc.OrderExecutorServiceServicer):
                     logger.info("Processing order %s", order.id)
                     with self.processing_lock:
                         self.processing_order = True
-                    self.execute_order(order_id = order.id)
+                    self.execute_order(order_id = order.id, title=order.title, quantity=order.quantity)
                     logger.info("Finished processing order %s", order.id)
                     with self.processing_lock:
                         self.processing_order = False

@@ -57,7 +57,14 @@ import books_database_pb2_grpc as books_database_grpc
 
 def serve():
     initial_store = {
-        "Some Book": 400
+        "Some Book": 400,
+        "Book A": 100,
+        "Book B": 100,
+        "Book 0": 100,
+        "Book 1": 100,
+        "Book 2": 100,
+        "Book 3": 100,
+        "Book 4": 100
     }
     server = grpc.server(futures.ThreadPoolExecutor())
 

@@ -17,10 +17,14 @@ class AccessResponse(_message.Message):
     def __init__(self, ok: bool = ...) -> None: ...
 
 class EnqueueRequest(_message.Message):
-    __slots__ = ("id",)
+    __slots__ = ("id", "title", "quantity")
     ID_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    QUANTITY_FIELD_NUMBER: _ClassVar[int]
     id: str
-    def __init__(self, id: _Optional[str] = ...) -> None: ...
+    title: str
+    quantity: int
+    def __init__(self, id: _Optional[str] = ..., title: _Optional[str] = ..., quantity: _Optional[int] = ...) -> None: ...
 
 class EnqueueResponse(_message.Message):
     __slots__ = ("ok",)
@@ -35,9 +39,13 @@ class DequeueRequest(_message.Message):
     def __init__(self, dummy: _Optional[str] = ...) -> None: ...
 
 class DequeueResponse(_message.Message):
-    __slots__ = ("found", "id")
+    __slots__ = ("found", "id", "title", "quantity")
     FOUND_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    QUANTITY_FIELD_NUMBER: _ClassVar[int]
     found: bool
     id: str
-    def __init__(self, found: bool = ..., id: _Optional[str] = ...) -> None: ...
+    title: str
+    quantity: int
+    def __init__(self, found: bool = ..., id: _Optional[str] = ..., title: _Optional[str] = ..., quantity: _Optional[int] = ...) -> None: ...

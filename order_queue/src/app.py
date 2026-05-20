@@ -61,7 +61,11 @@ class OrderQueueService(order_queue_grpc.OrderQueueServiceServicer):
         with self.lock:
             logger.info("Enqueue request received for id %s", request.id)
             try:
-                self.queue.append(request.id)
+                self.queue.append({
+                    "id": request.id,
+                    "title": request.title,
+                    "quantity": request.quantity,
+                })
             except:
                 result = False
                 logger.error("Failed to enqueue order")
@@ -71,13 +75,17 @@ class OrderQueueService(order_queue_grpc.OrderQueueServiceServicer):
     def Dequeue(self, request, context):
         with self.lock:
             logger.info("Dequeue request received")
-            result = ""
+            result = {
+                "id": "",
+                "title": "",
+                "quantity": 0,
+            }
             found = True
             try:
                 result = self.queue.pop()
             except:
                 found = False
-        return order_queue.DequeueResponse(found=found, id=str(result))
+        return order_queue.DequeueResponse(found=found, id=str(result["id"]), title=str(result["title"]), quantity=result["quantity"])
     
     def AccessResource(self, request, context):
         result = True

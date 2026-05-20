@@ -18,6 +18,8 @@ message AccessResponse {
 
 message EnqueueRequest{
   string id = 1;
+  string title = 2;
+  int32 quantity = 3;
 }
 
 message EnqueueResponse {
@@ -31,4 +33,6 @@ message DequeueRequest{
 message DequeueResponse {
   bool found = 1;
   string id = 2;
+  string title = 3;
+  int32 quantity = 4;
 }

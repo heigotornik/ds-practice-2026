@@ -169,7 +169,11 @@ def checkout():
             "suggestedBooks": [],
         }
 
-    send_order_to_queue(order_id)
+    send_order_to_queue(
+        order_id,
+        request_data["items"][0]["name"],
+        request_data["items"][0]["quantity"],
+    )
 
     app.logger.info("[%s] Checkout approved", order_id)
 
@@ -186,13 +190,13 @@ def checkout():
     }
 
 
-def send_order_to_queue(order_id):
+def send_order_to_queue(order_id, title, quantity):
     try:
         with grpc.insecure_channel("queue:50054") as channel:
             stub = order_queue_grpc.OrderQueueServiceStub(channel)
 
             response = stub.Enqueue(
-                order_queue.EnqueueRequest(id=order_id)
+                order_queue.EnqueueRequest(id=order_id, title=title, quantity=quantity)
             )
 
             if response.ok:
