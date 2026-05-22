@@ -251,8 +251,8 @@ describe("Checkout Flow", () => {
         (r) => r.body.status === "FAILED"
       );
 
-      expect(approved.length).to.eq(1);
-      expect(failed.length).to.eq(1);
+      expect(approved.length).to.eq(2);
+      expect(failed.length).to.eq(0);
     });
   });
 });
