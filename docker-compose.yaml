@@ -24,109 +24,100 @@ x-database-base: &database-base
     - ./books_database/src:/app/books_database/src
 
 services:
-  frontend:
-    build:
-      # Use the current directory as the build context
-      # This allows us to access the files in the current directory inside the Dockerfile
-      context: ./
-      dockerfile: ./frontend/Dockerfile
+  observability:
+    image: grafana/otel-lgtm
     ports:
-      # Expose port 8080 on the host, and map port 80 of the container to port 8080 on the host
-      # Access the application at http://localhost:8080
-      - "8080:80"
-    volumes:
-      # Mount the frontend directory
-      - ./frontend/src:/usr/share/nginx/html
-  orchestrator:
-    build:
-      # Use the current directory as the build context
-      # This allows us to access the files in the current directory inside the Dockerfile
-      context: ./
-      # Use the Dockerfile in the orchestrator directory
-      dockerfile: ./orchestrator/Dockerfile
-    ports:
-      # Expose port 8081 on the host, and map port 5000 of the container to port 8081 on the host
-      - 8081:5000
-      - 50050:50050
+      - "3000:3000"
+      - "4317:4317"
+      - "4318:4318"
     environment:
-      # Pass the environment variables to the container
-      # The PYTHONUNBUFFERED environment variable ensures that the output from the application is logged to the console
-      - PYTHONUNBUFFERED=TRUE
-      # The PYTHONFILE environment variable specifies the absolute entry point of the application
-      # Check app.py in the orchestrator directory to see how this is used
-      - PYTHONFILE=/app/orchestrator/src/app.py
-    volumes:
-      # Mount the utils directory in the current directory to the /app/utils directory in the container
-      - ./utils:/app/utils
-      # Mount the orchestrator/src directory in the current directory to the /app/orchestrator/src directory in the container
-      - ./orchestrator/src:/app/orchestrator/src
-  fraud_detection:
-    build:
-      # Use the current directory as the build context
-      # This allows us to access the files in the current directory inside the Dockerfile
-      context: ./
-      # Use the Dockerfile in the fraud_detection directorys
-      dockerfile: ./fraud_detection/Dockerfile
+      - OTEL_METRIC_EXPORT_INTERVAL=1000
+      - ENABLE_LOGS_OTELCOL=true
+      - ENABLE_LOGS_PROMETHEUS=true
+
+  database_1:
+    <<: *database-base
+    depends_on:
+      - observability
     ports:
-      # Expose port 50051 on the host, and map port 50051 of the container to port 50051 on the host
-      - 50051:50051
+      - "50058:50058"
     environment:
-      # Pass the environment variables to the container
-      # The PYTHONUNBUFFERED environment variable ensures that the output from the application is logged to the console
-      - PYTHONUNBUFFERED=TRUE
-      # The PYTHONFILE environment variable specifies the absolute entry point of the application
-      # Check app.py in the fraud_detection directory to see how this is used
-      - PYTHONFILE=/app/fraud_detection/src/app.py
-    volumes:
-      # Mount the utils directory in the current directory to the /app/utils directory in the container
-      - ./utils:/app/utils
-      # Mount the fraud_detection/src directory in the current directory to the /app/fraud_detection/src directory in the container
-      - ./fraud_detection/src:/app/fraud_detection/src
-  transaction_verification:
-    build:
-      # Use the current directory as the build context
-      # This allows us to access the files in the current directory inside the Dockerfile
-      context: ./
-      # Use the Dockerfile in the transaction_verification directorys
-      dockerfile: ./transaction_verification/Dockerfile
+      <<: *database-env
+      PORT: "50058"
+      IS_PRIMARY: "true"
+
+  database_2:
+    <<: *database-base
+    depends_on:
+      - observability
+      - database_1
     ports:
-      # Expose port 50051 on the host, and map port 50051 of the container to port 50051 on the host
-      - 50052:50052
+      - "50059:50059"
     environment:
-      # Pass the environment variables to the container
-      # The PYTHONUNBUFFERED environment variable ensures that the output from the application is logged to the console
-      - PYTHONUNBUFFERED=TRUE
-      # The PYTHONFILE environment variable specifies the absolute entry point of the application
-      # Check app.py in the transaction_verification directory to see how this is used
-      - PYTHONFILE=/app/transaction_verification/src/app.py
-    volumes:
-      # Mount the utils directory in the current directory to the /app/utils directory in the container
-      - ./utils:/app/utils
-      # Mount the transaction_verification/src directory in the current directory to the /app/transaction_verification/src directory in the container
-      - ./transaction_verification/src:/app/transaction_verification/src
-  suggestions:
-    build:
-      # Use the current directory as the build context
-      # This allows us to access the files in the current directory inside the Dockerfile
-      context: ./
-      # Use the Dockerfile in the suggestions directorys
-      dockerfile: ./suggestions/Dockerfile
+      <<: *database-env
+      PORT: "50059"
+      IS_PRIMARY: "false"
+
+  database_3:
+    <<: *database-base
+    depends_on:
+      - observability
+      - database_1
     ports:
-      # Expose port 50051 on the host, and map port 50051 of the container to port 50051 on the host
-      - 50053:50053
+      - "50060:50060"
     environment:
-      # Pass the environment variables to the container
-      # The PYTHONUNBUFFERED environment variable ensures that the output from the application is logged to the console
-      - PYTHONUNBUFFERED=TRUE
-      # The PYTHONFILE environment variable specifies the absolute entry point of the application
-      # Check app.py in the suggestions directory to see how this is used
-      - PYTHONFILE=/app/suggestions/src/app.py
-    volumes:
-      # Mount the utils directory in the current directory to the /app/utils directory in the container
-      - ./utils:/app/utils
-      # Mount the suggestions/src directory in the current directory to the /app/suggestions/src directory in the container
-      - ./suggestions/src:/app/suggestions/src
+      <<: *database-env
+      PORT: "50060"
+      IS_PRIMARY: "false"
+
+  executor_1:
+    <<: *executor-base
+    depends_on:
+      - observability
+      - database_1
+      - database_2
+      - database_3
+    ports:
+      - "50055:50055"
+    environment:
+      <<: *executor-env
+      PORT: "50055"
+      EXECUTOR_ID: "1"
+
+  executor_2:
+    <<: *executor-base
+    depends_on:
+      - observability
+      - database_1
+      - database_2
+      - database_3
+    ports:
+      - "50056:50056"
+    environment:
+      <<: *executor-env
+      PORT: "50056"
+      EXECUTOR_ID: "2"
+
+  executor_3:
+    <<: *executor-base
+    depends_on:
+      - observability
+      - database_1
+      - database_2
+      - database_3
+    ports:
+      - "50057:50057"
+    environment:
+      <<: *executor-env
+      PORT: "50057"
+      EXECUTOR_ID: "3"
+
   queue:
+    depends_on:
+      - observability
+      - executor_1
+      - executor_2
+      - executor_3
     build:
       # Use the current directory as the build context
       # This allows us to access the files in the current directory inside the Dockerfile
@@ -150,75 +141,155 @@ services:
       # Mount the suggestions/src directory in the current directory to the /app/order_queue/src directory in the container
       - ./order_queue/src:/app/order_queue/src
 
-  executor_1:
-    <<: *executor-base
-    ports:
-      - "50055:50055"
-    environment:
-      <<: *executor-env
-      PORT: "50055"
-      EXECUTOR_ID: "1"
-
-  executor_2:
-    <<: *executor-base
-    ports:
-      - "50056:50056"
-    environment:
-      <<: *executor-env
-      PORT: "50056"
-      EXECUTOR_ID: "2"
-
-  executor_3:
-    <<: *executor-base
-    ports:
-      - "50057:50057"
-    environment:
-      <<: *executor-env
-      PORT: "50057"
-      EXECUTOR_ID: "3"
-
-  database_1:
-    <<: *database-base
-    ports:
-      - "50058:50058"
-    environment:
-      <<: *database-env
-      PORT: "50058"
-      IS_PRIMARY: "true"
-
-  database_2:
-    <<: *database-base
-    ports:
-      - "50059:50059"
-    environment:
-      <<: *database-env
-      PORT: "50059"
-      IS_PRIMARY: "false"
-
-  database_3:
-    <<: *database-base
-    ports:
-      - "50060:50060"
-    environment:
-      <<: *database-env
-      PORT: "50060"
-      IS_PRIMARY: "false"
-
   payment:
+    depends_on:
+      - observability
+      - database_1
+      - database_2
+      - database_3
     build:
       context: ./
       dockerfile: ./payment/Dockerfile
     ports:
       - 50061:50061
     environment:
+      - PYTHONUNBUFFERED=TRUE
+      - PYTHONFILE=/app/payment/src/app.py
+    volumes:
+      - ./utils:/app/utils
+      - ./payment/src:/app/payment/src
+
+  fraud_detection:
+    depends_on:
+      - observability
+    build:
+      # Use the current directory as the build context
+      # This allows us to access the files in the current directory inside the Dockerfile
+      context: ./
+      # Use the Dockerfile in the fraud_detection directorys
+      dockerfile: ./fraud_detection/Dockerfile
+    ports:
+      # Expose port 50051 on the host, and map port 50051 of the container to port 50051 on the host
+      - 50051:50051
+    environment:
       # Pass the environment variables to the container
       # The PYTHONUNBUFFERED environment variable ensures that the output from the application is logged to the console
       - PYTHONUNBUFFERED=TRUE
       # The PYTHONFILE environment variable specifies the absolute entry point of the application
-      # Check app.py in the payment directory to see how this is used
-      - PYTHONFILE=/app/payment/src/app.py
+      # Check app.py in the fraud_detection directory to see how this is used
+      - PYTHONFILE=/app/fraud_detection/src/app.py
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://observability:4318/v1/traces
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://observability:4318/v1/metrics
+      - OTEL_SERVICE_NAME=fraud-detection-service
     volumes:
       # Mount the utils directory in the current directory to the /app/utils directory in the container
       - ./utils:/app/utils
-      # Mount the payment/src directory in the current directory to the /app/payment/src directory in the container
-      - ./payment/src:/app/payment/src
+      # Mount the fraud_detection/src directory in the current directory to the /app/fraud_detection/src directory in the container
+      - ./fraud_detection/src:/app/fraud_detection/src
+
+  transaction_verification:
+    depends_on:
+      - observability
+    build:
+      # Use the current directory as the build context
+      # This allows us to access the files in the current directory inside the Dockerfile
+      context: ./
+      # Use the Dockerfile in the transaction_verification directorys
+      dockerfile: ./transaction_verification/Dockerfile
+    ports:
+      # Expose port 50051 on the host, and map port 50051 of the container to port 50051 on the host
+      - 50052:50052
+    environment:
+      # Pass the environment variables to the container
+      # The PYTHONUNBUFFERED environment variable ensures that the output from the application is logged to the console
+      - PYTHONUNBUFFERED=TRUE
+      # The PYTHONFILE environment variable specifies the absolute entry point of the application
+      # Check app.py in the transaction_verification directory to see how this is used
+      - PYTHONFILE=/app/transaction_verification/src/app.py
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://observability:4318/v1/traces
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://observability:4318/v1/metrics
+      - OTEL_SERVICE_NAME=transaction-verification-service
+    volumes:
+      # Mount the utils directory in the current directory to the /app/utils directory in the container
+      - ./utils:/app/utils
+      # Mount the transaction_verification/src directory in the current directory to the /app/transaction_verification/src directory in the container
+      - ./transaction_verification/src:/app/transaction_verification/src
+
+  suggestions:
+    depends_on:
+      - observability
+    build:
+      # Use the current directory as the build context
+      # This allows us to access the files in the current directory inside the Dockerfile
+      context: ./
+      # Use the Dockerfile in the suggestions directorys
+      dockerfile: ./suggestions/Dockerfile
+    ports:
+      # Expose port 50051 on the host, and map port 50051 of the container to port 50051 on the host
+      - 50053:50053
+    environment:
+      # Pass the environment variables to the container
+      # The PYTHONUNBUFFERED environment variable ensures that the output from the application is logged to the console
+      - PYTHONUNBUFFERED=TRUE
+      # The PYTHONFILE environment variable specifies the absolute entry point of the application
+      # Check app.py in the suggestions directory to see how this is used
+      - PYTHONFILE=/app/suggestions/src/app.py
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://observability:4318/v1/traces
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://observability:4318/v1/metrics
+      - OTEL_SERVICE_NAME=suggestions-service
+    volumes:
+      # Mount the utils directory in the current directory to the /app/utils directory in the container
+      - ./utils:/app/utils
+      # Mount the suggestions/src directory in the current directory to the /app/suggestions/src directory in the container
+      - ./suggestions/src:/app/suggestions/src
+
+  frontend:
+    build:
+      # Use the current directory as the build context
+      # This allows us to access the files in the current directory inside the Dockerfile
+      context: ./
+      dockerfile: ./frontend/Dockerfile
+    ports:
+      # Expose port 8080 on the host, and map port 80 of the container to port 8080 on the host
+      # Access the application at http://localhost:8080
+      - "8080:80"
+    volumes:
+      # Mount the frontend directory
+      - ./frontend/src:/usr/share/nginx/html
+
+  orchestrator:
+    depends_on:
+      - observability
+      - database_1
+      - database_2
+      - database_3
+      - executor_1
+      - executor_2
+      - executor_3
+      - queue
+      - payment
+      - fraud_detection
+      - transaction_verification
+      - suggestions
+    build:
+      # Use the current directory as the build context
+      # This allows us to access the files in the current directory inside the Dockerfile
+      context: ./
+      # Use the Dockerfile in the orchestrator directory
+      dockerfile: ./orchestrator/Dockerfile
+    ports:
+      # Expose port 8081 on the host, and map port 5000 of the container to port 8081 on the host
+      - 8081:5000
+      - 50050:50050
+    environment:
+      # Pass the environment variables to the container
+      # The PYTHONUNBUFFERED environment variable ensures that the output from the application is logged to the console
+      - PYTHONUNBUFFERED=TRUE
+      # The PYTHONFILE environment variable specifies the absolute entry point of the application
+      # Check app.py in the orchestrator directory to see how this is used
+      - PYTHONFILE=/app/orchestrator/src/app.py
+    volumes:
+      # Mount the utils directory in the current directory to the /app/utils directory in the container
+      - ./utils:/app/utils
+      # Mount the orchestrator/src directory in the current directory to the /app/orchestrator/src directory in the container
+      - ./orchestrator/src:/app/orchestrator/src

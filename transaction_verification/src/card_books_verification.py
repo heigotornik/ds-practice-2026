@@ -36,6 +36,12 @@ dictConfig({
 logger = logging.getLogger(__name__)
 
 class CardBookVerificationProcess(TransactionServicesBase):
+    def __init__(self, app_service_name: str = "transaction-verification-service"):
+        super().__init__(
+            app_service_name=app_service_name,
+            subservice_name="card-books-verification",
+        )
+
     def get_service_events(self):
         return {
             (3, 0, 0, 0): self.event_with_cleanup(self.cleanup),
