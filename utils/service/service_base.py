@@ -1,13 +1,17 @@
 from dataclasses import dataclass
 import logging
-import threading
 import os
 import sys
+import threading
+import time
 from typing import Any, Callable
+
 import grpc
+from opentelemetry.metrics import Observation
+
 from metrics import create_base_service_metrics, get_tracer
 
-FILE = __file__ if '__file__' in globals() else os.getenv("PYTHONFILE", "")
+FILE = __file__ if "__file__" in globals() else os.getenv("PYTHONFILE", "")
 
 
 def add_path(relative_path: str):
@@ -18,8 +22,8 @@ def add_path(relative_path: str):
 
 add_path("../pb/orchestrator")
 
-import orchestrator_pb2_grpc as orchestrator_grpc
 import orchestrator_pb2 as orchestrator
+import orchestrator_pb2_grpc as orchestrator_grpc
 
 
 logger = logging.getLogger(__name__)
@@ -73,6 +77,13 @@ class SubserviceState:
 
         return False
 
+    def queue_depth(self) -> int:
+        self._condition.acquire()
+        try:
+            return sum(len(queue) for queue in self._task_queue.values())
+        finally:
+            self._condition.release()
+
 
 class Subservice:
     def __init__(
@@ -93,16 +104,26 @@ class Subservice:
         }
 
         self.tracer = get_tracer(self.__class__.__module__)
-        self.metrics = create_base_service_metrics()
 
         self.lock = threading.RLock()
         self.condition = threading.Condition(self.lock)
         self.state = SubserviceState(self.condition)
 
+        self.metrics = create_base_service_metrics(
+            observe_queue_depth=self._observe_queue_depth,
+        )
+
         channel = grpc.insecure_channel("orchestrator:50050")
         self.orchestrator_stub = orchestrator_grpc.CheckoutResultServiceStub(channel)
 
-        
+    def _observe_queue_depth(self, options=None):
+        return [
+            Observation(
+                self.state.queue_depth(),
+                self.metric_attributes,
+            )
+        ]
+
     def get_service_events(self):
         raise NotImplementedError("service events are not implemented")
 
@@ -132,6 +153,8 @@ class Subservice:
             "operation": action_name,
         }
 
+        event_result = "unknown"
+
         with self.tracer.start_as_current_span(
             f"{self.subservice_name}.{action_name}"
         ) as span:
@@ -140,7 +163,7 @@ class Subservice:
             span.set_attribute("operation", action_name)
             span.set_attribute("order.id", id)
 
-            self.metrics.events_started.add(1, attrs)
+            started_at = time.perf_counter()
 
             try:
                 logger.debug("[%s] Running event with internal cleanup", id)
@@ -150,10 +173,19 @@ class Subservice:
                 logger.debug("[%s] Event with cleanup FINISHED", id)
 
                 if verify_response is not None and not verify_response.isValid:
+                    event_result = "validation_failed"
+
                     span.set_attribute("validation.valid", False)
                     span.set_attribute("validation.message", verify_response.message)
+                    span.set_attribute("event.result", event_result)
 
-                    self.metrics.validation_failed.add(1, attrs)
+                    self.metrics.events_total.add(
+                        1,
+                        {
+                            **attrs,
+                            "event.result": event_result,
+                        },
+                    )
 
                     logger.error(
                         "[%s] Request is not valid: %s",
@@ -169,14 +201,34 @@ class Subservice:
                     )
                     return
 
+                event_result = "success"
+
                 span.set_attribute("validation.valid", True)
-                self.metrics.events_completed.add(1, attrs)
+                span.set_attribute("event.result", event_result)
+
+                self.metrics.events_total.add(
+                    1,
+                    {
+                        **attrs,
+                        "event.result": event_result,
+                    },
+                )
 
             except Exception as e:
+                event_result = "exception"
+
                 span.record_exception(e)
                 span.set_attribute("error", True)
+                span.set_attribute("event.result", event_result)
+                span.set_attribute("exception.type", type(e).__name__)
 
-                self.metrics.events_failed.add(1, attrs)
+                self.metrics.events_total.add(
+                    1,
+                    {
+                        **attrs,
+                        "event.result": event_result,
+                    },
+                )
 
                 logger.exception("[%s] Task failed", id)
 
@@ -186,160 +238,92 @@ class Subservice:
                     id,
                     str(e),
                 )
-        
+
+            finally:
+                duration_ms = (time.perf_counter() - started_at) * 1000
+
+                self.metrics.event_duration_ms.record(
+                    duration_ms,
+                    {
+                        **attrs,
+                        "event.result": event_result,
+                    },
+                )
+
     def _notify_orchestrator_failure(self, order_id, message):
-        attrs = {
-            **self.metric_attributes,
-            "operation": "notify_orchestrator_failure",
-            "target.service": "orchestrator",
-        }
+        logger.info(
+            "[%s] Notifying orchestrator about failure: %s",
+            order_id,
+            message,
+        )
 
-        with self.tracer.start_as_current_span(
-            f"{self.subservice_name}.notify_orchestrator_failure"
-        ) as span:
-            span.set_attribute("app.service", self.app_service_name)
-            span.set_attribute("subservice", self.subservice_name)
-            span.set_attribute("target.service", "orchestrator")
-            span.set_attribute("order.id", order_id)
+        request = orchestrator.CheckoutResult(
+            orderId=order_id,
+            success=False,
+            message=message,
+        )
 
-            self.metrics.orchestrator_failure_total.add(1, attrs)
-            self.metrics.outbound_rpc_total.add(1, attrs)
+        try:
+            self.orchestrator_stub.ReportResult(request)
+        except grpc.RpcError:
+            logger.exception("[%s] Failed to notify orchestrator", order_id)
 
-            logger.info("[%s] Notifying orchestrator about failure: %s", order_id, message)
-
-            request = orchestrator.CheckoutResult(
-                orderId=order_id,
-                success=False,
-                message=message,
-            )
-
-            try:
-                self.orchestrator_stub.ReportResult(request)
-
-            except grpc.RpcError as e:
-                span.record_exception(e)
-                span.set_attribute("error", True)
-
-                self.metrics.orchestrator_notify_failed.add(1, attrs)
-                self.metrics.outbound_rpc_failed.add(1, attrs)
-
-                logger.exception("[%s] Failed to notify orchestrator", order_id)
-
-   
     def notify_orchestrator_success(self, order_id, suggested_books):
-        attrs = {
-            **self.metric_attributes,
-            "operation": "notify_orchestrator_success",
-            "target.service": "orchestrator",
-        }
+        logger.info("[%s] Notifying orchestrator about success", order_id)
 
-        with self.tracer.start_as_current_span(
-            f"{self.subservice_name}.notify_orchestrator_success"
-        ) as span:
-            span.set_attribute("app.service", self.app_service_name)
-            span.set_attribute("subservice", self.subservice_name)
-            span.set_attribute("target.service", "orchestrator")
-            span.set_attribute("order.id", order_id)
+        request = orchestrator.CheckoutResult(
+            orderId=order_id,
+            success=True,
+            message="SUCCESS",
+            suggestedBooks=suggested_books,
+        )
 
-            self.metrics.orchestrator_success_total.add(1, attrs)
-            self.metrics.outbound_rpc_total.add(1, attrs)
-
-            logger.info("[%s] Notifying orchestrator about success", order_id)
-
-            request = orchestrator.CheckoutResult(
-                orderId=order_id,
-                success=True,
-                message="SUCCESS",
-                suggestedBooks=suggested_books,
-            )
-
-            try:
-                self.orchestrator_stub.ReportResult(request)
-
-            except grpc.RpcError as e:
-                span.record_exception(e)
-                span.set_attribute("error", True)
-
-                self.metrics.orchestrator_notify_failed.add(1, attrs)
-                self.metrics.outbound_rpc_failed.add(1, attrs)
-
-                logger.exception("[%s] Failed to notify orchestrator", order_id)
+        try:
+            self.orchestrator_stub.ReportResult(request)
+        except grpc.RpcError:
+            logger.exception("[%s] Failed to notify orchestrator", order_id)
 
     def event_with_cleanup(self, fn):
         return lambda ident: self._runnable_event_with_cleanup(fn, ident)
 
     def initialize_order(self, id, order):
-        attrs = {
-            **self.metric_attributes,
-            "operation": "initialize_order",
-        }
+        logger.debug("[%s] Received order init", id)
 
-        with self.tracer.start_as_current_span(
-            f"{self.subservice_name}.initialize_order"
-        ) as span:
-            span.set_attribute("app.service", self.app_service_name)
-            span.set_attribute("subservice", self.subservice_name)
-            span.set_attribute("order.id", id)
+        with self.state as state:
+            logger.debug("[%s] Initializing order", id)
 
-            logger.debug("[%s] Received order init", id)
+            state.vc[id] = (0, 0, 0, 0)
+            state.orders[id] = order
+            state.task_queue[id] = self._build_task_queue()
 
-            with self.state as state:
-                logger.debug("[%s] Initializing order", id)
+            logger.debug(
+                "[%s] Created task queue with %d tasks",
+                id,
+                len(state.task_queue[id]),
+            )
 
-                state.vc[id] = (0, 0, 0, 0)
-                state.orders[id] = order
-                state.task_queue[id] = self._build_task_queue()
-
-                queue_size = len(state.task_queue[id])
-
-                span.set_attribute("task_queue.size", queue_size)
-
-                self.metrics.orders_initialized.add(1, attrs)
-                self.metrics.task_queue_size.record(queue_size, attrs)
-
-                logger.debug(
-                    "[%s] Created task queue with %d tasks",
-                    id,
-                    queue_size,
-                )
-                
     def update_vector_clock(self, id):
         raise NotImplementedError("vector clock update is not implemented")
 
     def cleanup(self, id):
-        attrs = {
-            **self.metric_attributes,
-            "operation": "cleanup",
-        }
+        with self.state as state:
+            logger.debug(
+                "[%s] Applying cleanup in service %s",
+                id,
+                self.__class__.__name__,
+            )
 
-        with self.tracer.start_as_current_span(
-            f"{self.subservice_name}.cleanup"
-        ) as span:
-            span.set_attribute("app.service", self.app_service_name)
-            span.set_attribute("subservice", self.subservice_name)
-            span.set_attribute("order.id", id)
-
-            self.metrics.cleanup_total.add(1, attrs)
-
-            with self.state as state:
-                logger.debug(
-                    "[%s] Applying cleanup in service %s",
-                    id,
-                    self.__class__.__name__,
-                )
-
-                state.orders.pop(id, None)
-                state.vc.pop(id, None)
-                state.task_queue.pop(id, None)
-                state.suggestions.pop(id, None)
-
+            state.orders.pop(id, None)
+            state.vc.pop(id, None)
+            state.task_queue.pop(id, None)
+            state.suggestions.pop(id, None)
 
     def has_events_to_run(self) -> bool:
         """
         Non-destructive check.
 
         Use this in condition.wait_for(...). Do not use get_events_to_run()
-        inside wait_for because get_events_to_run() now pops tasks.
+        inside wait_for because get_events_to_run() pops tasks.
         """
         with self.state as state:
             for order_id, queue in state.task_queue.items():
@@ -354,63 +338,49 @@ class Subservice:
             return False
 
     def get_events_to_run(self) -> list[RunnableEvent]:
-        attrs = {
-            **self.metric_attributes,
-            "operation": "get_events_to_run",
-        }
+        with self.state as state:
+            logger.debug(
+                "Getting events to run for service %s",
+                self.__class__.__name__,
+            )
 
-        with self.tracer.start_as_current_span(
-            f"{self.subservice_name}.get_events_to_run"
-        ) as span:
-            span.set_attribute("app.service", self.app_service_name)
-            span.set_attribute("subservice", self.subservice_name)
+            events_to_run: list[RunnableEvent] = []
 
-            with self.state as state:
-                logger.debug(
-                    "Getting events to run for service %s",
-                    self.__class__.__name__,
+            for order_id in list(state.task_queue):
+                current_vc = state.vc.get(order_id)
+
+                if current_vc is None:
+                    continue
+
+                queue = state.task_queue.get(order_id, [])
+
+                runnable_index = self._find_runnable_task_index(
+                    current_vc,
+                    queue,
                 )
 
-                events_to_run: list[RunnableEvent] = []
+                if runnable_index is None:
+                    continue
 
-                for order_id in list(state.task_queue):
-                    current_vc = state.vc.get(order_id)
+                queued_task = queue.pop(runnable_index)
 
-                    if current_vc is None:
-                        continue
+                logger.debug(
+                    "[%s] Popped runnable task required_vc=%s",
+                    order_id,
+                    queued_task.required_vc,
+                )
 
-                    queue = state.task_queue.get(order_id, [])
-
-                    runnable_index = self._find_runnable_task_index(current_vc, queue)
-
-                    if runnable_index is None:
-                        continue
-
-                    queued_task = queue.pop(runnable_index)
-
-                    logger.debug(
-                        "[%s] Popped runnable task required_vc=%s",
-                        order_id,
-                        queued_task.required_vc,
+                events_to_run.append(
+                    RunnableEvent(
+                        id=order_id,
+                        required_vc=queued_task.required_vc,
+                        action=queued_task.action,
                     )
+                )
 
-                    events_to_run.append(
-                        RunnableEvent(
-                            id=order_id,
-                            required_vc=queued_task.required_vc,
-                            action=queued_task.action,
-                        )
-                    )
+            logger.debug("Found %d events", len(events_to_run))
 
-                event_count = len(events_to_run)
-
-                span.set_attribute("events.runnable_count", event_count)
-                self.metrics.events_runnable.add(event_count, attrs)
-
-                logger.debug("Found %d events", event_count)
-
-                return events_to_run
-
+            return events_to_run
 
     def _find_runnable_task_index(
         self,
@@ -439,51 +409,30 @@ class Subservice:
         )
 
     def update_with_incoming_vector_clock(self, id, incoming_vc):
-        attrs = {
-            **self.metric_attributes,
-            "operation": "update_with_incoming_vector_clock",
-        }
+        with self.state as state:
+            if id not in state.vc:
+                logger.warning("[%s] VC update for unknown id, initializing", id)
+                state.vc[id] = incoming_vc
+                return
 
-        with self.tracer.start_as_current_span(
-            f"{self.subservice_name}.update_with_incoming_vector_clock"
-        ) as span:
-            span.set_attribute("app.service", self.app_service_name)
-            span.set_attribute("subservice", self.subservice_name)
-            span.set_attribute("order.id", id)
-            span.set_attribute("incoming_vc", str(incoming_vc))
+            current = state.vc[id]
 
-            with self.state as state:
-                if id not in state.vc:
-                    logger.warning("[%s] VC update for unknown id, initializing", id)
-                    state.vc[id] = incoming_vc
-                    self.metrics.vector_clock_merges.add(1, attrs)
-                    return
-
-                current = state.vc[id]
-
-                if len(current) != len(incoming_vc):
-                    self.metrics.vector_clock_merge_errors.add(1, attrs)
-
-                    raise ValueError(
-                        f"VC length mismatch: local={current}, incoming={incoming_vc}"
-                    )
-
-                merged = tuple(
-                    max(current[i], incoming_vc[i])
-                    for i in range(len(current))
+            if len(current) != len(incoming_vc):
+                raise ValueError(
+                    f"VC length mismatch: local={current}, incoming={incoming_vc}"
                 )
 
-                span.set_attribute("local_vc", str(current))
-                span.set_attribute("merged_vc", str(merged))
+            merged = tuple(
+                max(current[i], incoming_vc[i])
+                for i in range(len(current))
+            )
 
-                self.metrics.vector_clock_merges.add(1, attrs)
+            logger.debug(
+                "[%s] Merging VC: local=%s incoming=%s -> merged=%s",
+                id,
+                current,
+                incoming_vc,
+                merged,
+            )
 
-                logger.debug(
-                    "[%s] Merging VC: local=%s incoming=%s -> merged=%s",
-                    id,
-                    current,
-                    incoming_vc,
-                    merged,
-                )
-
-                state.vc[id] = merged
+            state.vc[id] = merged

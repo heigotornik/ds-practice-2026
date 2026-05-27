@@ -20,9 +20,6 @@ add_path("../../../utils/service")
 
 import service_base as service
 
-import orchestrator_pb2 as orchestrator
-import orchestrator_pb2_grpc as orchestrator_grpc
-
 import fraud_detection_pb2 as fraud_detection
 import fraud_detection_pb2_grpc as fraud_detection_grpc
 
@@ -36,6 +33,7 @@ class TransactionServicesBase(service.Subservice):
             **self.metric_attributes,
             "operation": "send_vc_to_fraud_detection",
             "target.service": "fraud-detection",
+            "rpc.method": "UpdateStatus",
         }
 
         with self.tracer.start_as_current_span(
@@ -43,7 +41,9 @@ class TransactionServicesBase(service.Subservice):
         ) as span:
             span.set_attribute("app.service", self.app_service_name)
             span.set_attribute("subservice", self.subservice_name)
+            span.set_attribute("operation", "send_vc_to_fraud_detection")
             span.set_attribute("target.service", "fraud-detection")
+            span.set_attribute("rpc.method", "UpdateStatus")
             span.set_attribute("order.id", id)
 
             with self.state as state:
@@ -51,7 +51,11 @@ class TransactionServicesBase(service.Subservice):
 
                 if vc is None:
                     logger.warning("[%s] Cannot send VC update; unknown id", id)
+
                     span.set_attribute("vc.found", False)
+                    span.set_attribute("rpc.result", "not_sent")
+                    span.set_attribute("event.result", "vc_missing")
+
                     return
 
                 span.set_attribute("vc.found", True)
@@ -69,17 +73,15 @@ class TransactionServicesBase(service.Subservice):
                 )
 
                 try:
-                    self.metrics.outbound_rpc_total.add(1, attrs)
-
                     resp = stub.UpdateStatus(request)
 
                     logger.debug("[%s] Sent VC update to fraud detection", id)
 
                     if not resp.ok:
+                        span.set_attribute("rpc.result", "failure")
                         span.set_attribute("rpc.response.ok", False)
                         span.set_attribute("rpc.response.message", resp.message)
-
-                        self.metrics.outbound_rpc_failed.add(1, attrs)
+                        span.set_attribute("event.result", "rpc_response_not_ok")
 
                         logger.error(
                             "[%s] Failed to send VC update to fraud detection: %s",
@@ -88,14 +90,18 @@ class TransactionServicesBase(service.Subservice):
                         )
 
                         self._notify_orchestrator_failure(id, resp.message)
-                    else:
-                        span.set_attribute("rpc.response.ok", True)
+                        return
+
+                    span.set_attribute("rpc.result", "success")
+                    span.set_attribute("rpc.response.ok", True)
+                    span.set_attribute("event.result", "success")
 
                 except grpc.RpcError as e:
                     span.record_exception(e)
                     span.set_attribute("error", True)
-
-                    self.metrics.outbound_rpc_failed.add(1, attrs)
+                    span.set_attribute("rpc.result", "exception")
+                    span.set_attribute("event.result", "rpc_exception")
+                    span.set_attribute("exception.type", type(e).__name__)
 
                     logger.exception(
                         "[%s] Failed to send VC update to fraud detection",
